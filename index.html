@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#e7dfc9" />
     <meta name="description" content="《入卷：千里江山》——从两岸回望同一座桥，留下自己的游历小卷。" />
-    <title>入卷：千里江山 · 可玩原型</title>
-    <link rel="stylesheet" href="./style.css?v=105" />
+    <title>入卷 · 千里江山</title>
+    <link rel="stylesheet" href="./style.css?v=107" />
   </head>
   <body>
     <main id="app" aria-label="入卷：千里江山 3D 游戏">
@@ -14,7 +14,7 @@
 
       <div class="topline" aria-hidden="true">
         <span class="seal">入卷</span>
-        <span>千里江山 · 长桥 v0.9</span>
+        <span>千里江山 · 长桥一段</span>
       </div>
 
       <section id="start-screen" class="screen is-visible" aria-labelledby="start-title">
@@ -23,11 +23,11 @@
         <div class="cover">
           <div class="eyebrow">AMCC 5160 · Assignment 3</div>
           <h1 id="start-title" class="cover-title"><span data-ink>入卷</span><small data-ink>千里江山</small></h1>
-          <p class="cover-poem" data-ink>去时是路，回望是景。</p>
-          <p class="cover-story">十八岁的希孟画完这卷，便从史书里走失了。<br />今天，换你走进他的画里。</p>
+          <p class="cover-poem" data-ink>沿着画中小径，走入青绿深处。</p>
+          <p class="cover-story">政和三年，十八岁的王希孟画成《千里江山图》。<br />此后的生平，已无从详考。<br />九百余年过去，画里仍有长桥流水，有人家，有通往山中的小路。</p>
           <button id="start-button" class="cover-button" type="button">入 画</button>
-          <p class="microcopy">键盘 + 鼠标 · 进画以后，一步一步提示</p>
-          <p class="art-credit">原作局部图像用于本私人课程原型的对照欣赏；游戏三维场景为创作性诠释。<a href="https://commons.wikimedia.org/wiki/File:Wang_Ximeng_-_A_Thousand_Li_of_River_(Bridge).jpg" target="_blank" rel="noopener noreferrer">图像来源与版权说明 ↗</a></p>
+          <p class="microcopy">键盘与鼠标 · 入画之后，沿途有指引</p>
+          <p class="art-credit">原作局部仅供课程原型中对照欣赏；游戏里的山水为再创作，并非原作复原。<a href="https://commons.wikimedia.org/wiki/File:Wang_Ximeng_-_A_Thousand_Li_of_River_(Bridge).jpg" target="_blank" rel="noopener noreferrer">图像来源与版权说明 ↗</a></p>
         </div>
         <div class="cover-yuan" aria-hidden="true"><b id="yuan-name">平远</b><span id="yuan-line">自近山而望远山</span><em>郭熙《林泉高致》</em></div>
       </section>
@@ -58,7 +58,7 @@
           </button>
           <button id="scroll-toggle" class="scroll-button" type="button" aria-label="退出画中，查看长卷">
             <span class="keycap">M</span>
-            <span>看画卷</span>
+            <span>展卷</span>
           </button>
           <button id="frame-toggle" class="scroll-button frame-button" type="button" aria-label="从当前位置取景">
             <span class="keycap">V</span>
@@ -75,14 +75,14 @@
         <div class="scroll-stage">
           <header class="scroll-header">
             <div>
-              <p class="eyebrow">卷外 · 对照原作与行旅</p>
-              <h2 id="scroll-title">一段真实画卷，一段你的行旅</h2>
+              <p class="eyebrow">展卷 · 原作与游踪</p>
+              <h2 id="scroll-title">循着原作山水，重看一路游踪。</h2>
             </div>
-            <button id="close-scroll" class="text-button" type="button" aria-label="返回画中">返回画中 <span class="keycap">M</span></button>
+            <button id="close-scroll" class="text-button" type="button" aria-label="回到画中">回到画中 <span class="keycap">M</span></button>
           </header>
           <div class="scroll-tabs" role="tablist" aria-label="画卷视图">
             <button id="original-tab" class="scroll-tab is-selected" type="button" role="tab" aria-selected="true" aria-controls="original-panel">观原作 · 局部</button>
-            <button id="route-tab" class="scroll-tab" type="button" role="tab" aria-selected="false" aria-controls="route-panel">辨路径 · 游戏示意</button>
+            <button id="route-tab" class="scroll-tab" type="button" role="tab" aria-selected="false" aria-controls="route-panel">看路线 · 游戏示意</button>
           </div>
           <div class="scroll-controls" aria-label="逐段展开画卷">
             <button id="unroll-left" class="unroll-button" type="button">← 向左展卷</button>
@@ -93,7 +93,7 @@
             <div id="original-scroll" class="handscroll original-scroll" role="group" aria-label="王希孟《千里江山图》桥亭段图像，从右向左展卷">
               <div id="original-inner" class="original-inner">
                 <img src="./assets/qianli-bridge-commons-v0-4.jpg" alt="《千里江山图》局部：青绿群山、江水、长桥与亭阁" draggable="false" />
-                <div class="scroll-region" aria-hidden="true"><span>此章 · 长桥至主峰</span></div>
+                <div class="scroll-region" aria-hidden="true"><span>此程 · 长桥至主峰</span></div>
                 <svg id="scroll-route" class="scroll-route" viewBox="0 0 2000 427" preserveAspectRatio="none" aria-hidden="true">
                   <defs><marker id="route-head" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1.5L10 6L1 10.5" fill="none" stroke="#e9c76a" stroke-width="1.6" stroke-linecap="round" /></marker></defs>
                   <path class="route-glow" d="" />
@@ -136,25 +136,25 @@
               <path d="M54 100 Q145 122 210 105 M771 100 Q840 119 924 107" fill="none" stroke="#faf4e2" stroke-width="30" stroke-linecap="round" opacity=".65" />
             </svg>
             <span class="scroll-location start-location">你在此岸</span>
-            <span class="scroll-location goal-location">对岸屋舍</span>
+            <span class="scroll-location goal-location">对岸人家</span>
             <span id="bridge-caption" class="bridge-caption" hidden>桥亭</span>
             </div>
           </div>
           </div>
           <div class="scroll-footer">
-            <p id="scroll-hint">从右向左展卷，先看原作中桥亭与山水怎样相连。</p>
+            <p id="scroll-hint">自右向左展卷，先看原作里桥亭如何连起两岸山水。</p>
             <p id="scroll-note" class="scroll-note">原作图像：王希孟《千里江山图》桥亭段，<a href="https://commons.wikimedia.org/wiki/File:Wang_Ximeng_-_A_Thousand_Li_of_River_(Bridge).jpg" target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>；并非故宫授权的图像。</p>
           </div>
           <div id="travel-views" class="travel-views" hidden>
             <div class="travel-view">
-              <span>来路的一眼</span>
+              <span>来路一景</span>
               <img id="scroll-near-shot" alt="从此岸留下的游戏画面" hidden />
-              <p id="scroll-near-empty">尚未留下</p>
+              <p id="scroll-near-empty">尚未取景</p>
             </div>
             <div class="travel-view">
-              <span>回望的一眼</span>
+              <span>回望一景</span>
               <img id="scroll-far-shot" alt="从对岸回望留下的游戏画面" hidden />
-              <p id="scroll-far-empty">尚未留下</p>
+              <p id="scroll-far-empty">尚未取景</p>
             </div>
           </div>
         </div>
@@ -166,13 +166,13 @@
         <ul id="frame-checklist" class="frame-checklist" aria-label="框里有什么">
           <li data-item="bridge">桥</li>
           <li data-item="boat">船</li>
-          <li data-item="third">去处</li>
+          <li data-item="third">对岸</li>
         </ul>
         <div class="frame-bottom">
           <p id="frame-status" role="status"></p>
           <div class="frame-actions">
-            <button id="take-frame" class="primary-button" type="button">留下此刻 <span class="keycap">空格</span></button>
-            <button id="leave-frame" class="frame-exit" type="button">返回行走 <span class="keycap">Esc</span></button>
+            <button id="take-frame" class="primary-button" type="button">收入画中 <span class="keycap">空格</span></button>
+            <button id="leave-frame" class="frame-exit" type="button">继续行旅 <span class="keycap">Esc</span></button>
           </div>
         </div>
       </section>
@@ -180,7 +180,7 @@
       <section id="pause-screen" class="screen small-screen" aria-labelledby="pause-title" hidden>
         <div class="panel">
           <p class="eyebrow">稍作停留</p>
-          <h2 id="pause-title">画还在这里。</h2>
+          <h2 id="pause-title">且歇片刻，山水还在眼前。</h2>
           <button id="resume-button" class="primary-button" type="button">继续行走</button>
           <button id="pause-restart-button" class="text-button" type="button">从头开始</button>
         </div>
@@ -189,13 +189,13 @@
       <section id="inscribe-screen" class="screen small-screen" aria-labelledby="inscribe-title" hidden>
         <div class="panel">
           <p class="eyebrow">半山亭 · 题壁</p>
-          <h2 id="inscribe-title">壁上有一笔墨，还没干。<br />你也写一句？</h2>
+          <h2 id="inscribe-title">亭壁上留着一笔墨，尚未干透。<br />不妨也题一句，记下此游。</h2>
           <div class="inscribe-choices">
-            <button class="primary-button inscribe-choice" type="button" data-line="回头路已成画">回头路已成画</button>
-            <button class="primary-button inscribe-choice" type="button" data-line="山未着色时">山未着色时</button>
-            <button class="primary-button inscribe-choice" type="button" data-line="且停此亭看水">且停此亭看水</button>
+            <button class="primary-button inscribe-choice" type="button" data-line="回首来路已成画">回首来路已成画</button>
+            <button class="primary-button inscribe-choice" type="button" data-line="山色待人添">山色待人添</button>
+            <button class="primary-button inscribe-choice" type="button" data-line="且坐听水流">且坐听水流</button>
           </div>
-          <button id="inscribe-cancel" class="text-button" type="button">不写了 <span class="keycap">Esc</span></button>
+          <button id="inscribe-cancel" class="text-button" type="button">搁笔 <span class="keycap">Esc</span></button>
         </div>
       </section>
 
@@ -205,23 +205,23 @@
           <img class="rujuan-painting" src="./assets/qianli-bridge-commons-v0-4.jpg" alt="《千里江山图》局部，长桥至群峰" />
           <svg class="rujuan-figure" viewBox="0 0 16 40" aria-hidden="true"><g stroke="#2a2620" stroke-width=".8" stroke-linejoin="round"><path class="rujuan-sleeve" d="M4.4 11 L1.2 24 L3.2 24.6 L5.8 13 Z" fill="#efe6d2" /><path d="M4 10 Q8 8 12 10 L14 38 Q8 39.6 2 38 Z" fill="#efe6d2" /><path d="M4.7 17 H11.3" stroke="#3a3128" stroke-width="1.5" /><ellipse cx="8" cy="5.6" rx="2.3" ry="2.5" fill="#e9dcc4" /><path d="M5.7 5.2 Q5.8 3 8 3 Q10.2 3 10.3 5.2 Q8 4.3 5.7 5.2 Z" fill="#2a2620" /><circle cx="8" cy="2.2" r="1.3" fill="#2a2620" /></g></svg>
         </div>
-        <p class="rujuan-caption">这卷千里江山，是十八岁的王希孟用不到半年画成的。</p>
-        <p class="rujuan-caption">你从画外走进这卷山水；此刻，作画的人也走了进去。</p>
+        <p class="rujuan-caption">希孟十八岁，不到半年，画成了这卷《千里江山图》。</p>
+        <p class="rujuan-caption">少年的背影渐渐远去，隐入层叠的青绿。</p>
         <div class="rujuan-silk">
-          <p class="rujuan-line">此后，史书里再没有他的名字。</p>
-          <p class="rujuan-line">只有这卷山水，留了下来。</p>
-          <p class="rujuan-line rujuan-last">自此，世间再无王希孟。</p>
+          <p class="rujuan-line">此后，希孟的生平已无从详考。</p>
+          <p class="rujuan-line">只余这一卷山水，流传至今。</p>
+          <p class="rujuan-line rujuan-last">九百余年后，展卷的人仍可循着长桥，望向群山深处。</p>
           <h2 class="rujuan-title">入卷<span>：千里江山</span></h2>
           <div class="rujuan-credits">
-            <p>设计 · 导演 · 取舍 —— Xingyi</p>
+            <p>构思 · 设计 · 取舍 —— Xingyi</p>
             <p>3D 模型：Tripo AI 生成，Blender 整理　·　人物动作：Mixamo 自动绑定</p>
             <p>概念图与贴图：Codex 图像生成　·　程序：与 Claude Code 协作编写（Three.js）　·　声音：浏览器实时合成</p>
             <p>原作图像：王希孟《千里江山图》，故宫博物院藏，经 Wikimedia Commons（公有领域）</p>
-            <p class="rujuan-disclosure">本作的模型、贴图与代码由 AI 辅助生成；构思、设计与每一处取舍由作者完成。无真人肖像与声音。</p>
+            <p class="rujuan-disclosure">本作的模型、贴图与代码由 AI 辅助生成，构思、设计及最终取舍由作者完成。未使用真人肖像或声音。</p>
           </div>
           <div class="rujuan-actions">
             <button id="rujuan-scroll" class="text-button" type="button">再看我的小卷</button>
-            <button id="rujuan-restart" class="primary-button" type="button">再走一次</button>
+            <button id="rujuan-restart" class="primary-button" type="button">再游一回</button>
           </div>
         </div>
       </section>
@@ -229,13 +229,13 @@
       <section id="end-screen" class="screen small-screen" aria-labelledby="end-title" hidden>
         <div class="panel ending-panel">
           <p class="eyebrow">卷终 · 山顶</p>
-          <h2 id="end-title">去时是路，回望是景，<br />登高，是画。</h2>
-          <p id="keep-line">三眼都来自你在画中站的位置与朝向。</p>
+          <h2 id="end-title">登高回望，来时走过的山路，<br />已与长桥、村舍连成一幅画。</h2>
+          <p id="keep-line">卷中三景，都是你沿途亲自选取的景致。</p>
           <figure id="my-scroll" class="my-scroll" hidden>
             <img id="my-scroll-img" alt="你的小卷：去时、回望、登高三眼，配方与题跋" />
-            <figcaption>你的小卷：你自己的视角，你自己的配方。</figcaption>
+            <figcaption>展卷时，还能认出自己的来路。</figcaption>
           </figure>
-          <button id="save-scroll" class="text-button save-scroll" type="button" hidden>存下小卷 ↓</button>
+          <button id="save-scroll" class="text-button save-scroll" type="button" hidden>收藏小卷 ↓</button>
           <p id="elapsed-time" class="elapsed-time"></p>
           <button id="rujuan-button" class="primary-button" type="button">收卷</button>
           <button id="end-restart-button" class="text-button" type="button">再走一次</button>
@@ -245,13 +245,13 @@
             <pre id="play-log-text"></pre>
             <button id="copy-log-button" class="text-button" type="button">复制记录</button>
           </details>
-          <p class="end-disclaimer">游戏化诠释；并非《千里江山图》的逐物复原。王希孟入画为艺术想象。</p>
+          <p class="end-disclaimer">本作据《千里江山图》改编，未逐一复原画中景物。王希孟入画的情节为艺术想象。</p>
         </div>
       </section>
 
       <div id="error" class="error" role="alert" hidden>三维画面未能加载。请尝试桌面 Chrome、Edge 或 Safari 的较新版本。</div>
     </main>
     <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
-    <script type="module" src="./game.js?v=105"></script>
+    <script type="module" src="./game.js?v=107"></script>
   </body>
 </html>

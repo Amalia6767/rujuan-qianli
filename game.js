@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup } from './sound.js?v=105';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup } from './sound.js?v=107';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=105';
+} from './look.js?v=107';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -256,7 +256,7 @@ const HOUSE_SITES = [
   // a step behind and to the left, higher; the furnished interior is now the long house.
   { name: 'house_hall', label: '主屋', x: 1.5, z: -60, rotation: 0, scale: 6, pad: 3.8, y: 5.4 },
   { name: 'house_shelter', label: '长屋', x: 15, z: -43.4, rotation: -Math.PI / 2, scale: 12, baseY: .1,
-    hint: '进了长屋。一家人的日子都在这条长廊里：读书、喝茶、织布。' },
+    hint: '廊下摆着织机，案头搁着书卷和茶盏。山水深处，原来也住着寻常人家。' },
   { name: 'house_cottage', label: '小屋', x: 23, z: -47, rotation: -.45, scale: 6.2, pad: 3.6 },
   { name: 'house_cottage', label: '小屋', x: 7, z: -55, rotation: .1, scale: 5.4, pad: 3.2, y: 3.6 },
 ];
@@ -656,8 +656,8 @@ function drawWall(line) {
 // The painter's things left on the path: picked up with E, handed back at the summit later.
 const pickups = {};
 const PICKUP_LINES = {
-  dish: ['一只石绿颜料碟，颜料还没干。有人刚从这里经过。', '拾得石绿颜料碟'],
-  brush: ['一支笔，笔尖还润着。前面的人走得很急。', '拾得一支笔'],
+  dish: ['山路旁遗落着一碟石绿，颜色尚湿。作画的人，或许并未走远。', '拾得石绿颜料碟'],
+  brush: ['一支画笔落在路旁，笔尖还带着湿意。', '拾得一支笔'],
 };
 function makePickup(key, x, z) {
   const group = new THREE.Group();
@@ -1279,11 +1279,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=105`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=107`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=105`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=107`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1971,7 +1971,7 @@ function setScrollStage(nextStage, animated = true) {
   const focusedLeft = document.activeElement === unrollLeft;
   const focusedRight = document.activeElement === unrollRight;
   scrollStage = THREE.MathUtils.clamp(nextStage, 0, 2);
-  const labels = scrollView === 'original' ? ['卷右 · 桥亭', '卷中 · 群山', '卷左 · 山路'] : ['此岸', '长桥', '对岸'];
+  const labels = scrollView === 'original' ? ['卷右 · 桥亭', '卷中 · 群山', '卷左 · 山径'] : ['此岸', '长桥', '对岸'];
   scrollPosition.textContent = labels[scrollStage];
   unrollLeft.disabled = scrollStage === 2;
   unrollRight.disabled = scrollStage === 0;
@@ -1980,13 +1980,13 @@ function setScrollStage(nextStage, animated = true) {
   const maxScroll = Math.max(0, view.scrollWidth - view.clientWidth);
   view.scrollTo({ left: maxScroll * (1 - scrollStage / 2), behavior: animated ? 'smooth' : 'auto' });
   scrollHint.textContent = (scrollView === 'original' ? [
-    '从右向左展卷。先看桥亭怎样将两岸接在一起。',
-    '走向画卷中段，比较一层层青绿山体与江面的留白。',
-    '继续往左，看山路、树木与建筑怎样引导视线。',
+    '自右向左展卷。先看桥亭怎样把两岸连在一处。',
+    '看到画卷中段，青绿群山层层叠起，江面却疏朗开阔。',
+    '再往左看，目光随山路转折，穿过林木，落在屋宇之间。',
   ] : [
-    '这是原创的行旅示意：从右向左展开，看看两岸如何相连。',
-    '桥亭连着两岸。回到画中，从自己的位置辨认这段关系。',
-    '对岸有屋舍和坡地。走到那里，再回头看同一座桥。',
+    '这是为游戏新绘的行旅示意，自右向左展开，看两岸如何相连。',
+    '桥亭连着两岸。回到画中，看看眼前的长桥，在原作的哪一处。',
+    '对岸山坡上有人家。走到那里，回头再看这座桥。',
   ])[scrollStage];
   if (unrollLeft.disabled && focusedLeft) unrollRight.focus();
   if (unrollRight.disabled && focusedRight) unrollLeft.focus();
@@ -2022,18 +2022,18 @@ function currentBank() {
 let goalMarkup = '';
 function updateGoal() {
   const rows = [
-    ['此岸：给桥留一眼', !!shots.near],
-    ['过桥', state.crossed],
-    ['到对岸：回头，再留一眼', !!shots.far],
-    ['登上山顶：最后一眼', !!shots.peak],
+    ['此岸 · 长桥取景', !!shots.near],
+    ['过长桥', state.crossed],
+    ['对岸 · 回望取景', !!shots.far],
+    ['山顶 · 登高取景', !!shots.peak],
   ].map(([text, done]) => `<li class="${done ? 'is-done' : ''}">${text}</li>`);
   if (boatState.phase === 'waiting' || boatState.tiedBy === 'player') {
-    rows.push(`<li class="is-optional${boatState.tiedBy === 'player' ? ' is-done' : ''}">可选：渡口的舟人需要帮手</li>`);
+    rows.push(`<li class="is-optional${boatState.tiedBy === 'player' ? ' is-done' : ''}">闲笔 · 帮舟人系缆</li>`);
   }
-  if (!shots.bridge) rows.push('<li class="is-optional">可选：在桥心亭外侧望江，留一眼</li>');
-  if (errand.phase === 'offered') rows.push('<li class="is-optional">可选：舟人托你捎一担货（岸边货堆旁按 E）</li>');
+  if (!shots.bridge) rows.push('<li class="is-optional">闲笔 · 桥心亭外，凭栏望江</li>');
+  if (errand.phase === 'offered') rows.push('<li class="is-optional">闲笔 · 替舟人捎一担货（岸边货堆旁按 E）</li>');
   if (errand.phase === 'carrying' || errand.phase === 'delivered') {
-    rows.push(`<li class="is-optional${errand.phase === 'delivered' ? ' is-done' : ''}">可选：把货送到对岸山庄的长屋</li>`);
+    rows.push(`<li class="is-optional${errand.phase === 'delivered' ? ' is-done' : ''}">闲笔 · 送货到对岸山庄的长屋</li>`);
   }
   const markup = rows.join('');
   if (markup !== goalMarkup) goalList.innerHTML = goalMarkup = markup;
@@ -2042,23 +2042,23 @@ function updateGoal() {
 // ---------- 一步一步的操作提示：同一时刻只教一件事 ----------
 const coachState = { shownKey: '', walked: false, turned: false, turnShownAt: 0, scrollHintUntil: 0, scrollHinted: false };
 const HINTS = {
-  walk: [['W', 'A', 'S', 'D'], '走路'],
-  turn: [['按住鼠标', '拖动'], '转动视角，往哪看就往哪走'],
+  walk: [['W', 'A', 'S', 'D'], '行走'],
+  turn: [['按住鼠标', '拖动'], '看向哪里，就走向哪里'],
   take: [['E'], '接住缆绳'],
-  tie: [['E'], '走到发光的木桩旁，系上'],
-  near: [['V'], '取景：给桥留一眼'],
+  tie: [['E'], '走到亮起的木桩旁，系好缆绳'],
+  near: [['V'], '取景 · 将长桥收入画中'],
   descend: [['W'], '下山去渡口，舟人在水边等你'],
-  far: [['V'], '取景：回头，把桥和来路放进框里'],
-  climb: [['W'], '沿山路上山，山顶还有最后一眼'],
-  peak: [['V'], '取景：从山顶看你走过的路'],
-  bridge: [['V'], '走出亭檐几步，从桥心望江留一眼'],
-  cargo: [['E'], '接过舟人的一担货'],
-  deliver: [['E'], '把货放在长屋门口'],
+  far: [['V'], '取景 · 回头，把长桥和来路收进画框'],
+  climb: [['W'], '沿山路往上走，到山顶再取一景'],
+  peak: [['V'], '取景 · 从山顶看你走过的路'],
+  bridge: [['V'], '走出亭檐几步，在桥心望江取景'],
+  cargo: [['E'], '接过这担货'],
+  deliver: [['E'], '把货放在长屋门前'],
   dish: [['E'], '拾起'],
   brush: [['E'], '拾起'],
   inscribe: [['E'], '在亭壁上题一句'],
-  giveback: [['E'], '把拾到的东西还给他'],
-  scroll: [['M'], '随时可以对照原画'],
+  giveback: [['E'], '把拾来的笔和颜料还给他'],
+  scroll: [['M'], '随时展卷，对照原作'],
 };
 function pickHint() {
   const action = currentAction();
@@ -2199,7 +2199,7 @@ function startGame() {
   state.pendingEndAt = 0;
   myScroll.hidden = true;
   saveScroll.hidden = true;
-  saveScroll.textContent = '存下小卷 ↓';
+  saveScroll.textContent = '收藏小卷 ↓';
   state.frameBank = null;
   state.frameSubject = '';
   shots.near = null;
@@ -2235,7 +2235,7 @@ function startGame() {
   keys.clear();
   show(null);
   canvas.focus();
-  say('去河的对岸。路上，给桥留两眼。', 4200);
+  say('水边一座长桥，通向山脚的人家。去时看桥，过桥后，再回头看一看。', 5600);
 }
 
 // The pin sits where the traveller stands, mapped onto the painting; on opening, the view
@@ -2345,7 +2345,8 @@ function frameItems() {
   const third = (state.frameBank === 'near' ? GOING : CAME).some(point => inFrame(point) && camera.position.distanceTo(point) < reach);
   return { bridge, boat, third, blocked: state.frameBank === 'bridge' ? false : lensBlocked() }; // rails are foreground on the bridge
 }
-const thirdLabel = () => state.frameBank === 'near' ? '去处' : '来路';
+const joinCN = list => list.length < 2 ? list.join('') : `${list.slice(0, -1).join('、')}和${list.at(-1)}`;
+const thirdLabel = () => state.frameBank === 'near' ? '对岸' : '来路';
 function itemNames(items) {
   return [items.bridge && '桥', items.boat && '船', items.third && thirdLabel()].filter(Boolean);
 }
@@ -2355,10 +2356,10 @@ function refreshFrameFeedback() {
   frameChecklist.querySelector('[data-item="third"]').textContent = thirdLabel();
   for (const key of ['bridge', 'boat', 'third']) frameChecklist.querySelector(`[data-item="${key}"]`).classList.toggle('is-in', items[key]);
   const names = itemNames(items);
-  const message = items.blocked ? '眼前有柱子或栏杆挡着。按 Esc 退出，挪一步再取景。'
-    : state.frameBank === 'bridge' ? `${names.length ? `框里有：${names.join('、')}。` : ''}从桥心望出去，按空格留下这一眼。`
-    : !(items.bridge || items.boat) ? '桥和船都不在框里。按住鼠标拖动，或按 A / D 转向。'
-    : `框里有：${names.join('、')}。按空格留下这一眼。`;
+  const message = items.blocked ? '柱子或栏杆挡住了视线。按 Esc 退出，稍微移动后再试。'
+    : state.frameBank === 'bridge' ? `${names.length ? `框中有${joinCN(names)}。` : ''}站在桥心望出去，按空格取景。`
+    : !(items.bridge || items.boat) ? '桥和船还未入框。拖动鼠标，或按 A / D 调整方向。'
+    : `框中有${joinCN(names)}。按空格取景。`;
   if (message !== state.frameSubject) {
     state.frameSubject = message;
     frameStatus.textContent = message;
@@ -2369,7 +2370,7 @@ function openFraming() {
   if (state.mode !== 'play') return;
   const bank = currentBank();
   if (!bank) {
-    say(state.onBridge ? '走出桥心亭的屋檐几步，就能从桥心望出去取景。' : '走到桥心，或回到岸上，再取景。', 3200);
+    say(state.onBridge ? '再往亭外走几步，就能望见两岸。' : '到桥心或岸上，便可以取景。', 3200);
     return;
   }
   state.mode = 'framing';
@@ -2425,7 +2426,7 @@ function captureFrame() {
   try {
     shots[state.frameBank] = canvas.toDataURL('image/jpeg', .82);
   } catch (error) {
-    frameStatus.textContent = '这一眼没能保存。请稍后再试。';
+    frameStatus.textContent = '这次取景没有保存，请稍后再试。';
     return;
   }
   const bank = state.frameBank;
@@ -2434,7 +2435,7 @@ function captureFrame() {
   cueCapture();
   closeFraming();
   updateGoal();
-  say({ near: '来路这一眼，留下了。', bridge: '桥心这一眼，江山两岸都在。', far: '回望这一眼，也留下了。', peak: '你取下的这一眼，落进了他画上空着的那一角。' }[bank], 4200);
+  say({ near: '来路这一景，已收进卷中。', bridge: '桥心一景，两岸尽收。', far: '回望这一景，也留在卷上了。', peak: '绢上渐渐有了颜色。方才望见的山水，已落在那一角空白里。' }[bank], 4200);
   if (bank === 'peak') {
     const corner = new Image();
     corner.onload = () => { paintState.corner = corner; drawPainting(); };
@@ -2470,13 +2471,13 @@ function win() {
   cueArrival();
   note('展开小卷', false);
   const seconds = Math.round((performance.now() - state.startedAt) / 1000);
-  elapsedTime.textContent = `本次入卷：${Math.floor(seconds / 60)} 分 ${String(seconds % 60).padStart(2, '0')} 秒`;
+  elapsedTime.textContent = `此行用时：${Math.floor(seconds / 60)} 分 ${String(seconds % 60).padStart(2, '0')} 秒`;
   // v0.9: the scroll holds all three views in reading order (right to left), no choosing.
   playLogText.textContent = playLog.join('\n');
-  keepLine.textContent = `卷中每一眼都来自你在画中站的位置与朝向，画的是「${recipe.name}」。`;
+  keepLine.textContent = '卷中三景，都是你沿途亲自选取的景致。';
   composeScroll();
   show(null);
-  say('你走过的路，缩成卷中的几笔。', 2100);
+  say('行过长桥，穿过村舍，沿山路登高。一路所见，收在这幅小卷里。', 4200);
 }
 
 // ---------- 你的小卷：引首 + 画心（留下的一眼）+ 题跋（配方与这一路） ----------
@@ -2485,14 +2486,14 @@ function colophonLines() {
   const lines = [recipe.name.replace(/ /g, '')];
   const high = logged.has('走上高岸路'), water = logged.has('走到水边路');
   const route = high && water ? '高岸水边皆走过' : high ? '由高岸而下' : water ? '循水边而行' : '';
-  lines.push(route ? `${route}，过长桥` : '过长桥');
+  lines.push('过长桥');
   if (logged.has('系好缆绳')) lines.push('为舟人系缆');
   else if (logged.has('舟人自己上岸系缆')) lines.push('见舟人自系其缆');
   if (logged.has('为舟人送货')) lines.push('为舟人捎货至山庄');
   const found = [logged.has('拾得石绿颜料碟') && '石绿', logged.has('拾得一支笔') && '一笔'].filter(Boolean);
-  if (found.length) lines.push(`山路拾得${found.join('与')}`);
+  if (found.length) lines.push(`山径拾得${found.map(f => f === '石绿' ? '石绿一碟' : '画笔一支').join('、')}`);
   if (errand.inscription) lines.push(`题壁「${errand.inscription}」`);
-  if (logged.has('把颜料与笔还给画者')) lines.push('山顶还笔于画者');
+  if (logged.has('把颜料与笔还给画者')) lines.push('至山顶，归还画笔与颜料');
   for (const bank of ['near', 'bridge', 'far', 'peak']) {
     if (shots[bank]) lines.push(`${VIEW_NAMES[bank]}${shotItems[bank].length ? `，${shotItems[bank].join('与')}入画` : ''}`);
   }
@@ -2589,9 +2590,9 @@ function downloadScroll() {
     link.href = myScrollImg.src;
     link.download = `入卷-${recipe.name.replace(/[ ·]/g, '')}.jpg`;
     link.click();
-    saveScroll.textContent = '已存下';
+    saveScroll.textContent = '已收藏';
   } catch {
-    saveScroll.textContent = '这里不能直接下载，请右键或长按图片保存';
+    saveScroll.textContent = '无法直接下载时，请右键或长按图片保存';
   }
 }
 
@@ -2783,7 +2784,7 @@ function backToWorld() {
   updateGoal();
   show(null);
   canvas.focus();
-  say('可以再走走。重取任一眼，小卷会再次展开。', 4200);
+  say('还可以四处走走。重新取景，便能再看你的小卷。', 4200);
 }
 
 function tryMove(dx, dz) {
@@ -2898,12 +2899,12 @@ function updateErrands(elapsed) {
   if (errand.phase === 'none' && boatState.tiedBy === 'player' && landing.pile[0].visible && flat(p, PILE_CENTRE) < 14) {
     errand.phase = 'offered';
     note('舟人托你捎货');
-    say('舟人：「多谢！顺路的话，帮我把这担货捎给对岸山庄的长屋？」', 5200);
+    say('舟人：「多谢了！若往对岸去，劳烦捎上这担货，送到山庄的长屋门前。」', 5200);
   }
   if (!PAINTER.met && flat(p, PAINTER.at) < 9) {
     PAINTER.met = true;
     note('山顶遇画者');
-    say('有人背对着你，坐在崖边作画。画上空着一角。', 4800);
+    say('一个少年背对着你，坐在崖边作画。案上铺着一卷绢，画的正是眼前的山水，只留一角空白。', 6400);
   }
   if (flat(p, PAINTER.at) < 40 && performance.now() - paintState.lastDraw > 150) {
     paintState.lastDraw = performance.now();
@@ -2931,7 +2932,7 @@ function closeInscribe(line) {
   drawWall(line);
   cueCapture();
   note(`题壁：${line}`);
-  say('墨落在壁上，挨着那一笔还没干的。', 3600);
+  say('壁上添了你的题句，旁边那一笔墨还未干。', 3600);
 }
 
 function interact() {
@@ -2944,7 +2945,7 @@ function interact() {
     if (crate) crate.visible = false;
     cuePickup();
     note('接过一担货');
-    say('货背上了。对岸山庄，长屋。', 3000);
+    say('货已挑上肩，送到对岸山庄的长屋门前便好。', 4000);
   } else if (action === 'deliver') {
     errand.phase = 'delivered';
     carriedBundle.visible = false;
@@ -2953,7 +2954,7 @@ function interact() {
     setTimeout(() => { teaBowl.visible = true; }, 1300);
     cuePickup();
     note('为舟人送货');
-    say('把货放在长屋门口。屋里有人应了一声，递出一碗茶。', 4600);
+    say('货放在长屋门前。屋里有人应了一声，递出一碗热茶。', 4600);
   } else if (action === 'dish' || action === 'brush') {
     pickups[action].taken = true;
     pickups[action].group.visible = false;
@@ -2979,17 +2980,17 @@ function interact() {
     returnedThings.visible = true;
     cueCapture();
     note('把颜料与笔还给画者');
-    say('他没有回头，只伸手接了过去。', 3800);
+    say('他没有回头，伸手接过了笔和颜料。', 3800);
   } else if (action === 'take') {
     boatState.ropeHeld = true;
     landing.coil.visible = false;
     note('接过绳端');
-    say('接到绳了。', 2400);
+    say('接住了。把缆绳系到岸边的木桩上。', 3200);
   } else if (action === 'tie') {
     boatState.ropeHeld = false;
     finishTie('player');
     note('系好缆绳');
-    say('绳拉紧了，船稳住。舟人点点头，继续卸货。', 3800);
+    say('缆绳一紧，船便稳了。舟人点点头，转身卸货。', 3800);
   }
 }
 
@@ -3026,13 +3027,13 @@ function updateLanding(dt, elapsed) {
       boatState.lastCall = now;
       if (!boatState.asked) note('听到舟人请求');
       boatState.asked = true;
-      say('舟人：「劳驾！帮忙接一下缆绳！」', 3600);
+      say('舟人：「劳驾，搭把手，接一下缆绳！」', 3600);
     }
     if (boatState.ropeHeld && toDock > 11) {
       boatState.ropeHeld = false;
       landing.coil.visible = true;
       note('绳端滑回船上', false);
-      say('绳端滑回了船上。', 2600);
+      say('缆绳一滑，又落回船上。', 2600);
     }
     const waited = (performance.now() - boatState.arrivedAt) / 1000;
     if (!boatState.ropeHeld && ((waited > SELF_TIE_AFTER && toDock > 12) || state.crossed)) {
@@ -3136,27 +3137,27 @@ function update(dt, elapsed) {
     if (!state.forkNotified && Math.hypot(x - LOOKOUT.x, z - LOOKOUT.z) < 3) {
       state.forkNotified = true;
       note('登上高岸');
-      say('豁然开朗：桥、船、对岸，一眼看全。按 V，给桥留一眼。', 5200);
+      say('站在高处，长桥、渔船与对岸人家都在眼前。按 V 取景。', 5200);
     }
     if (!state.nearRiverNotified && z < 8.5 && z > 0 && x < 5) {
       state.nearRiverNotified = true;
-      say('河过不去，沿着河岸找桥。', 3600);
+      say('此处水深，须从桥上过去。', 3600);
     }
     if (state.onBridge) note('上桥');
     if (state.house?.hint && !logged.has(`走进${state.house.label}`)) {
       note(`走进${state.house.label}`);
-      say(state.house.hint, 4200);
+      say(state.house.hint, 5600);
     }
     if (!state.bridgePavilionNotified && Math.abs(x - 8) < 1.5 && Math.abs(z - BRIDGE.z) < 1.6) {
       state.bridgePavilionNotified = true;
       note('到桥心亭');
-      say('桥心有亭。脚下是水；桥还在延伸。', 3900);
+      say('长桥中央，一座小亭临水而立。亭下流水，两岸青山，凭栏便可望见。', 5200);
     }
     if (!state.crossed && z < BRIDGE.z - BRIDGE.half - .2) {
       state.crossed = true;
       note('过桥到对岸');
       updateGoal();
-      say('到对岸了。转过身，看看来时的路。', 3900);
+      say('回望来路，长桥已在身后。桥边的船、岸上的人，都小了，渐渐与两岸山色融在一处。', 6000);
     }
     if (state.pendingEndAt && performance.now() > state.pendingEndAt) win();
 
@@ -3211,7 +3212,7 @@ function update(dt, elapsed) {
       state.summitRevealed = true;
       state.revealT = 0;
       cueSummit();
-      say('山河在下，一眼千里。', 4200);
+      say('到了山顶，眼前豁然开阔。长桥、村舍与来时的山路，都在群山之间。', 5600);
     }
     if (state.revealT != null && state.revealT < 7.5) {
       state.revealT += dt;
