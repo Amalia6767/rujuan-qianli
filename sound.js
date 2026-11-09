@@ -142,7 +142,7 @@ function pluckPentatonicTone() {
 
 // ---- Music: a looping travel theme and a one-shot ending cue (assets/music). ----
 const MUSIC_LEVEL = 0.34;
-const TRACKS = { travel: 'assets/music/travel.m4a?v=1', rujuan: 'assets/music/rujuan.m4a?v=1' };
+const TRACKS = { travel: 'assets/music/travel.mp3?v=2', rujuan: 'assets/music/rujuan.mp3?v=2' };
 const buffers = {};
 let musicGain = null;
 let wantTrack = 'travel';
