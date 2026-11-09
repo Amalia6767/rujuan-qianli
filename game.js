@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup } from './sound.js?v=107';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=108';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=107';
+} from './look.js?v=108';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1279,11 +1279,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=107`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=108`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=107`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=108`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2179,6 +2179,7 @@ function openRecipe() {
 }
 
 function startGame() {
+  playTravelMusic();
   // Sound on from the first step (the start click is the user gesture); the toggle still turns it off.
   if (!state.soundStarted) {
     state.soundStarted = true;
@@ -2608,6 +2609,7 @@ function startRujuan() {
   rj.t = 0;
   rj.lines = 0;
   note('收卷 · 入卷', false);
+  playEndingMusic();
   show(null);
   rujuan.hidden = false;
   rujuan.classList.add('is-active');
@@ -2764,6 +2766,7 @@ function updateRujuan(dt) {
   }
 }
 function closeRujuan(toScroll) {
+  playTravelMusic();
   document.querySelector('.topline').style.visibility = '';
   if (rjPainting) rjPainting.visible = false;
   rujuan.hidden = true;

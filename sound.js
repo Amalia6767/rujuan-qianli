@@ -1,4 +1,4 @@
-// Original, synthesized sound for 入卷. No samples, recordings, or music files.
+// Sound for 入卷: synthesized ambience and cues, plus two music tracks (Suno, AI-generated).
 // Audio is not created or played until startAudio() is called from a user gesture.
 
 let context = null;
@@ -140,7 +140,78 @@ function pluckPentatonicTone() {
   };
 }
 
+// ---- Music: a looping travel theme and a one-shot ending cue (assets/music). ----
+const MUSIC_LEVEL = 0.34;
+const TRACKS = { travel: 'assets/music/travel.m4a?v=1', rujuan: 'assets/music/rujuan.m4a?v=1' };
+const buffers = {};
+let musicGain = null;
+let wantTrack = 'travel';
+let current = null; // { name, source, gain }
+let loopTimer = null;
+
+function loadTrack(name) {
+  if (!buffers[name]) buffers[name] = fetch(TRACKS[name]).then(r => r.arrayBuffer())
+    .then(data => new Promise((ok, fail) => context.decodeAudioData(data, ok, fail))).catch(() => null);
+  return buffers[name];
+}
+
+function fadeOut(entry, seconds) {
+  if (!entry) return;
+  const now = context.currentTime;
+  entry.gain.gain.cancelScheduledValues(now);
+  entry.gain.gain.setValueAtTime(entry.gain.gain.value, now);
+  entry.gain.gain.linearRampToValueAtTime(0, now + seconds);
+  try { entry.source.stop(now + seconds + .05); } catch { /* already stopped */ }
+}
+
+function startSource(name, buffer, fadeIn) {
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  const gain = context.createGain();
+  const now = context.currentTime;
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(1, now + fadeIn);
+  source.connect(gain).connect(musicGain);
+  source.start(now);
+  source.onended = () => { source.disconnect(); gain.disconnect(); };
+  return { name, source, gain };
+}
+
+// The travel theme loops by crossfading a fresh copy over its last few seconds.
+function playTravel(fadeIn) {
+  clearTimeout(loopTimer);
+  loadTrack('travel').then(buffer => {
+    if (!buffer || wantTrack !== 'travel' || !context) return;
+    const previous = current;
+    current = startSource('travel', buffer, fadeIn);
+    if (previous) fadeOut(previous, fadeIn);
+    const overlap = 5;
+    loopTimer = setTimeout(() => { if (wantTrack === 'travel') playTravel(overlap); }, (buffer.duration - overlap) * 1000);
+  });
+}
+
+function playTrack(name, fadeIn = 3) {
+  wantTrack = name;
+  if (!context || !musicGain) return;
+  if (current?.name === name && name === 'travel') return;
+  clearTimeout(loopTimer);
+  if (name === 'travel') { playTravel(fadeIn); return; }
+  const previous = current;
+  current = null;
+  fadeOut(previous, 2.5);
+  loadTrack(name).then(buffer => {
+    if (!buffer || wantTrack !== name) return;
+    current = startSource(name, buffer, .4);
+  });
+}
+
+/** The ending cue (fades the travel theme out). */
+export function playEndingMusic() { playTrack('rujuan'); }
+/** Back to the looping travel theme. */
+export function playTravelMusic() { playTrack('travel', 4); }
+
 function scheduleScore(initial = false) {
+  if (musicGain) return; // the music tracks replace the random plucks
   if (scoreTimer !== null || !canPlayScore()) return;
   // Long, variable rests preserve the landscape's quiet and avoid a tiring loop.
   const delay = initial ? 3500 : 6800 + (scoreRandom() % 6400);
@@ -167,6 +238,11 @@ export async function startAudio() {
       noiseBuffer = makeNoiseBuffer(context);
       makeAmbience(context);
       scheduleBirds();
+      musicGain = context.createGain();
+      musicGain.gain.value = MUSIC_LEVEL;
+      musicGain.connect(master);
+      loadTrack('rujuan');
+      playTrack(wantTrack, 4);
     }
     if (context.state !== 'running') await context.resume();
     setMasterLevel();
