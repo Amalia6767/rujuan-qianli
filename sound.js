@@ -46,7 +46,7 @@ function makeAmbience(ctx) {
   windFilter.type = 'lowpass';
   windFilter.frequency.value = 430;
   const windGain = ctx.createGain();
-  windGain.gain.value = 0.07;
+  windGain.gain.value = 0.035; // halved under the music (Xingyi)
   source.connect(windFilter).connect(windGain).connect(master);
 
   const waterFilter = ctx.createBiquadFilter();
@@ -54,21 +54,21 @@ function makeAmbience(ctx) {
   waterFilter.frequency.value = 820;
   waterFilter.Q.value = 0.65;
   const waterGain = ctx.createGain();
-  waterGain.gain.value = 0.06;
+  waterGain.gain.value = 0.03;
   source.connect(waterFilter).connect(waterGain).connect(master);
 
   const windPulse = ctx.createOscillator();
   windPulse.type = 'sine';
   windPulse.frequency.value = 0.11;
   const windDepth = ctx.createGain();
-  windDepth.gain.value = 0.016;
+  windDepth.gain.value = 0.008;
   windPulse.connect(windDepth).connect(windGain.gain);
 
   const waterPulse = ctx.createOscillator();
   waterPulse.type = 'sine';
   waterPulse.frequency.value = 0.16;
   const waterDepth = ctx.createGain();
-  waterDepth.gain.value = 0.009;
+  waterDepth.gain.value = 0.0045;
   waterPulse.connect(waterDepth).connect(waterGain.gain);
 
   source.start();
