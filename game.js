@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=111';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=115';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=111';
+} from './look.js?v=115';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -617,39 +617,55 @@ let halfwayPavilion = null;
 // 题壁: the pavilion's plastered wall carries one wet stroke (someone was just here), then
 // the line the player chooses.
 const wallCanvas = document.createElement('canvas');
-wallCanvas.width = 480;
-wallCanvas.height = 204; // same proportions as the 4.1 × 1.75 wall
+wallCanvas.width = 960;
+wallCanvas.height = 408; // same proportions as the 4.1 × 1.75 wall
 const wallTexture = new THREE.CanvasTexture(wallCanvas);
 wallTexture.colorSpace = THREE.SRGBColorSpace;
+// Xingyi: not a white board with one stroke, but a mounted Song silk panel with verse on it.
+// The verse is 苏轼《题西林壁》 (a poem written on a wall); its last line is still being written.
+const WALL_FONT = "'Kaiti SC', 'STKaiti', 'KaiTi', 'Xingkai SC', 'Noto Serif SC', 'Songti SC', serif";
 function drawWall(line) {
-  const ctx = wallCanvas.getContext('2d');
-  ctx.fillStyle = '#ebe5d4';
-  ctx.fillRect(0, 0, 480, 204);
-  for (let i = 0; i < 700; i++) {
-    ctx.fillStyle = `rgba(120,105,80,${.03 + .04 * ((i * 13) % 5) / 5})`;
-    ctx.fillRect((i * 151) % 480, (i * 83) % 204, 2 + (i % 4), 1);
+  const ctx = wallCanvas.getContext('2d'), W = 960, H = 408, band = 30;
+  // brocade mounting
+  ctx.fillStyle = '#2f4a45';
+  ctx.fillRect(0, 0, W, H);
+  for (let x = 0; x < W; x += 16) for (const y of [8, H - 22]) {
+    ctx.fillStyle = 'rgba(214,190,128,.28)';
+    ctx.fillRect(x + 4, y, 8, 2); ctx.fillRect(x + 7, y + 4, 2, 8);
   }
-  // The stranger's stroke, still glossy.
-  ctx.strokeStyle = '#1c1d1a';
-  ctx.lineCap = 'round';
-  ctx.lineWidth = 9;
-  ctx.beginPath();
-  ctx.moveTo(402, 26);
-  ctx.bezierCurveTo(386, 70, 420, 110, 396, 172);
-  ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,255,255,.35)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(400, 34);
-  ctx.bezierCurveTo(386, 74, 417, 110, 395, 160);
-  ctx.stroke();
-  if (line) {
-    ctx.fillStyle = '#23241f';
-    ctx.font = "600 25px 'Noto Serif SC', 'Songti SC', serif";
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    [...line].forEach((ch, i) => ctx.fillText(ch, 330, 16 + i * 29));
+  // aged silk
+  const g = ctx.createLinearGradient(0, band, 0, H - band);
+  g.addColorStop(0, '#d8c79d'); g.addColorStop(.5, '#e0d0a8'); g.addColorStop(1, '#d2bf92');
+  ctx.fillStyle = g;
+  ctx.fillRect(10, band, W - 20, H - 2 * band);
+  for (let y = band; y < H - band; y += 2) { ctx.fillStyle = `rgba(110,90,55,${.035 + .03 * ((y * 7) % 3) / 3})`; ctx.fillRect(10, y, W - 20, 1); }
+  for (let x = 10; x < W - 10; x += 3) { ctx.fillStyle = 'rgba(255,248,225,.05)'; ctx.fillRect(x, band, 1, H - 2 * band); }
+  for (let i = 0; i < 9; i++) { // soft age stains
+    const sx = (i * 263) % W, sy = band + (i * 97) % (H - 2 * band);
+    const st = ctx.createRadialGradient(sx, sy, 0, sx, sy, 60 + (i * 31) % 70);
+    st.addColorStop(0, 'rgba(140,110,60,.10)'); st.addColorStop(1, 'rgba(140,110,60,0)');
+    ctx.fillStyle = st; ctx.fillRect(10, band, W - 20, H - 2 * band);
   }
+  ctx.strokeStyle = 'rgba(176,146,84,.8)'; ctx.lineWidth = 2;
+  ctx.strokeRect(14, band + 4, W - 28, H - 2 * band - 8);
+  const column = (text, x, size, ink, wet = false) => {
+    ctx.font = `${size}px ${WALL_FONT}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    [...text].forEach((ch, i) => {
+      const y = band + 22 + i * (size + 6);
+      if (wet) { ctx.fillStyle = 'rgba(20,20,18,.95)'; ctx.fillText(ch, x, y); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillText(ch, x - 1, y - 1); }
+      else { ctx.fillStyle = ink; ctx.fillText(ch, x, y); }
+    });
+  };
+  column('横看成岭侧成峰', 900, 40, 'rgba(38,34,28,.82)');
+  column('远近高低各不同', 846, 40, 'rgba(38,34,28,.82)');
+  column('不识庐山真面目', 792, 40, 'rgba(38,34,28,.8)');
+  column('只缘', 738, 40, '', true); // still wet: the writer has just gone on up the path
+  // a small seal
+  ctx.fillStyle = 'rgba(176,44,36,.85)'; ctx.fillRect(721, H - band - 64, 34, 34);
+  ctx.fillStyle = '#e9dcc0'; ctx.font = `bold 14px ${WALL_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('行', 738, H - band - 55); ctx.fillText('者', 738, H - band - 39);
+  if (line) column(line, 600, 44, 'rgba(22,22,20,.95)', true);
   wallTexture.needsUpdate = true;
 }
 
@@ -1268,7 +1284,7 @@ const textureLoader = new THREE.TextureLoader();
 // Tripo's built forms (bridge, houses, pavilions, boat, interiors) come with bright orange,
 // photo-like wood. Painted into the scroll instead: muted toward grey-ochre, and an ink line
 // darkens every silhouette edge, as the bridge and roofs are outlined in the painting.
-const PAINTED = /^(bridge|house_|halfway_pavilion|riverboat|hall_vignette|loom_vignette|boat_|mooring_post|cargo_sacks)/;
+const PAINTED = /^(bridge|house_|halfway_pavilion|riverboat|hall_vignette|loom_vignette|boat_|mooring_post|cargo_sacks|water_mill)/;
 function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: share of the original saturation
   material.onBeforeCompile = shader => {
     shader.fragmentShader = shader.fragmentShader
@@ -1281,11 +1297,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=111`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=115`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=111`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=115`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1557,18 +1573,24 @@ function houseStep(x, z) {
   const around = houses.filter(h => h.reach.containsPoint(stepProbe.set(x, feet + 1, z)));
   const house = around.find(h => h.site.hint) ?? around[0];
   if (!house) return null;
+  // The summit pavilion (Xingyi): its steps rise from a slope, so the first riser is at knee
+  // height; its benches are lower than the knee probe. Steps (≤ .3) are climbed, benches block.
+  const strict = house.site.label === '山顶亭';
+  const rise = strict ? .3 : .5;
+  const floor = houseHits(stepProbe.set(x, feet + 1, z), DOWN, 1.8).find(hit => hit.point.y <= feet + rise);
+  const ground = heightAt(x, z);
+  const stand = floor?.point.y > ground ? floor.point.y : null;
   stepDirection.set(x - p.x, 0, z - p.z);
   const distance = stepDirection.length();
   if (distance > 1e-5) {
     stepDirection.divideScalar(distance);
     for (const knee of [.6, 1.45]) {
-      if (houseHits(stepProbe.set(p.x, feet + knee, p.z), stepDirection, distance + .3).length) return false;
+      if (!houseHits(stepProbe.set(p.x, feet + knee, p.z), stepDirection, distance + .3).length) continue;
+      if (strict && knee < 1 && (stand ?? ground) > feet + .02) continue; // a riser being climbed, not a rail
+      return false;
     }
   }
-  // A floor counts if it is no more than a step above the feet.
-  const floor = houseHits(stepProbe.set(x, feet + 1, z), DOWN, 1.8).find(hit => hit.point.y <= feet + .5);
-  const ground = heightAt(x, z);
-  const stand = floor?.point.y > ground ? floor.point.y : null;
+  if (strict && houseHits(stepProbe.set(x, feet + 1.3, z), DOWN, 1.3).some(hit => hit.point.y > (stand ?? ground) + .32)) return false; // bench seat, rail (a next step is lower)
   if (houseHits(stepProbe.set(x, (stand ?? ground) + .6, z), UP, 1.5).length) return false;
   state.house = stand != null ? house.site : null;
   return stand;
@@ -1650,6 +1672,7 @@ const PAINT_ROUTE = [
   [[-.9, -42.2], [1488, 330]], [[-7, -50], [1440, 310]], [[-9, -57.5], [1330, 290]], [[-24, -66], [1240, 240]],
   [[-14, -71], [1190, 200]], [[-24, -77], [1140, 160]], [[-17, -84], [1092, 104]],
 ];
+const deskThings = new THREE.Group(); // the returned dish and brush, on his desk (added to the stand later)
 const paintCanvas = document.createElement('canvas');
 paintCanvas.width = 2048;
 paintCanvas.height = Math.round(2048 * PAINT_CROP.height / PAINT_CROP.width);
@@ -1751,6 +1774,7 @@ const paintingStand = new THREE.Group();
         #include <colorspace_fragment>
       }`,
   }));
+  paintingStand.add(deskThings);
   sheet.position.set(0, .98, .05);
   sheet.rotation.x = -Math.PI / 2 - .22; // laid on the desk, tipped a little toward him
   sheet.rotation.z = Math.PI;
@@ -1782,7 +1806,7 @@ function setPainterDeck(y) {
 const painterSeat = box(.62, .62, .5, new THREE.MeshStandardMaterial({ color: 0x3b2a1e, roughness: .9 }), 0, 0, 0); // a dark wooden stool, like his desk
 painterSeat.position.set(PAINTER.at.x + PAINTER.facing.x * .22, PAINTER.at.y + .31, PAINTER.at.z + PAINTER.facing.z * .22);
 painterSeat.rotation.y = Math.atan2(PAINTER.facing.x, PAINTER.facing.z);
-const returnedThings = new THREE.Group(); // the dish and brush, set down beside him
+const returnedThings = new THREE.Group(); // (kept empty; the returned things now lie on the desk)
 returnedThings.visible = false;
 scene.add(returnedThings);
 
@@ -1952,12 +1976,59 @@ loadModel('cargo_sacks', gltf => {
   [...landing.pile, carriedBundle, doorstep.children[0]].forEach(mesh => dressBox(mesh, template));
 }, '货包');
 
+// A light waymark on the far bank (Xingyi: players did not know where to climb): a few gold
+// chevrons on the lane toward the mountain path, breathing faintly; gone once the climb begins.
+const waymarks = [];
+{
+  const gold = new THREE.MeshBasicMaterial({ color: 0xf2d38a, transparent: true, opacity: 0, depthWrite: false, fog: false });
+  const chevron = () => {
+    const g = new THREE.Group();
+    for (const sgn of [-1, 1]) {
+      const bar = new THREE.Mesh(new THREE.PlaneGeometry(.09, .8).rotateX(-Math.PI / 2), gold);
+      bar.rotation.y = sgn * .62;
+      bar.position.set(sgn * .22, 0, .24);
+      g.add(bar);
+    }
+    return g;
+  };
+  const route = [[8, -38.6], [2.4, -41.5], [-5, -43.2], [-7.3, -46.5], [-7, -50], [-9, -57.5]];
+  for (const [i, t] of [[1, .2], [2, .1], [3, .5], [4, .5]]) {
+    const [ax, az] = route[i], [bx, bz] = route[i + 1];
+    const x = ax + (bx - ax) * t, z = az + (bz - az) * t;
+    const mark = chevron();
+    mark.position.set(x, Math.max(heightAt(x, z), visibleGround(x, z)) + .12, z);
+    mark.rotation.y = Math.atan2(ax - bx, az - bz); // points along the way
+    mark.renderOrder = 5000;
+    scene.add(mark);
+    waymarks.push(mark);
+  }
+  waymarks.material = gold;
+}
+function updateWaymarks(elapsed) {
+  const p = traveller.position;
+  const want = state.mode === 'play' && state.crossed && !state.onBridge && p.z < RIVER.far + 1 && p.z > -56 ? 1 : 0;
+  waymarks.material.opacity += ((.5 + .2 * Math.sin(elapsed * 2.2)) * want - waymarks.material.opacity) * .06;
+  waymarks.forEach(m => { m.visible = waymarks.material.opacity > .01; });
+}
+
+// A watermill on the far bank, as in the painting: half on the bank, its wheel in the river.
+loadModel('water_mill', gltf => {
+  const holder = new THREE.Group();
+  holder.add(fitModel(gltf.scene, 6, 'x'));
+  holder.position.set(-14, heightAt(-14, -39.5) - .15, -37.4);
+  holder.rotation.y = .12;
+  scene.add(holder);
+  holder.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(holder);
+  houses.push({ site: { label: '' }, box, reach: box.clone().expandByScalar(.6), chunks: collisionChunks(holder) });
+}, '水磨');
+
 // Distant boats: the river was empty but for the ferry; the painting's river has many.
 const farBoats = [];
 [['boat_sail', -22, -14, .4], ['boat_fishing', -46, -27, 2.4], ['boat_fishing', 33, -25, -2.7], ['boat_sail', 58, -9, 1.2]].forEach(([name, x, z, yaw], i) => {
   loadModel(name, gltf => {
     const holder = new THREE.Group();
-    holder.add(fitModel(gltf.scene, 3.4, 'x'));
+    holder.add(fitModel(gltf.scene, 7.5, 'x')); // Xingyi: 3.4 read as toys at that distance
     holder.position.set(x, -.38, z);
     holder.rotation.y = yaw;
     holder.userData.phase = i * 1.7;
@@ -2063,7 +2134,7 @@ function currentBank() {
   const p = traveller.position;
   if (Math.hypot(p.x - SUMMIT_TERRACE.x, p.z - SUMMIT_TERRACE.z) < SUMMIT_TERRACE.r + 1) return 'peak';
   // On the deck just outside the pavilion's low eaves (inside, the eaves fill the view).
-  if (state.onBridge && Math.abs(p.z - BRIDGE.z) > 3.4 && Math.abs(p.z - BRIDGE.z) < 12) return 'bridge';
+  if (state.onBridge && Math.abs(p.z - BRIDGE.z) > 7.8 && Math.abs(p.z - BRIDGE.z) < 13.5) return 'bridge';
   if (traveller.position.z > .5) return 'near';
   if (traveller.position.z < RIVER.far - .2) return 'far';
   return null;
@@ -2102,7 +2173,7 @@ const HINTS = {
   far: [['V'], '取景 · 回头，把长桥和来路收进画框'],
   climb: [['W'], '沿山路往上走，到山顶再取一景'],
   peak: [['V'], '取景 · 从山顶看你走过的路'],
-  bridge: [['V'], '走出亭檐几步，在桥心望江取景'],
+  bridge: [['V'], '沿桥再往前走几步，出了亭檐便可望江取景'],
   cargo: [['E'], '接过这担货'],
   deliver: [['E'], '把货放在长屋门前'],
   dish: [['E'], '拾起'],
@@ -2422,7 +2493,7 @@ function openFraming() {
   if (state.mode !== 'play') return;
   const bank = currentBank();
   if (!bank) {
-    say(state.onBridge ? '再往亭外走几步，就能望见两岸。' : '到桥心或岸上，便可以取景。', 3200);
+    say(state.onBridge ? '沿着桥再往前走几步，出了亭檐，就能望见两岸。' : '到桥心或岸上，便可以取景。', 3200);
     return;
   }
   state.mode = 'framing';
@@ -2676,6 +2747,7 @@ function startRujuan() {
     PAINTER.model.position.copy(PAINTER.at);
   }
   playPainterClip('standup'); // he puts down the brush and rises first
+  playTravellerClip('idle'); // the traveller stands and watches him go (no walking on the spot)
   setPainterOpacity(1);
   placeRujuanPainting();
   rjCaps.forEach(c => { c.style.opacity = 0; });
@@ -2712,7 +2784,7 @@ const rjCaps = [...document.querySelectorAll('.rujuan-caption')];
 let rjPainting = null;
 function placeRujuanPainting() {
   if (!rjPainting) {
-    const tex = textureLoader.load('./assets/qianli-bridge-commons-v0-4.jpg');
+    const tex = textureLoader.load('./assets/qianli-mountains-cutout.webp?v=1'); // the mountains only: the silk sky keyed out
     tex.colorSpace = THREE.SRGBColorSpace;
     rjPainting = new THREE.Mesh(new THREE.PlaneGeometry(34 * 4200 / 896, 34),
       // Drawn over the whole world (no depth test); only he is drawn after it, on top.
@@ -2728,9 +2800,11 @@ function placeRujuanPainting() {
   rjPainting.material.opacity = 0;
   rjPainting.visible = true;
 }
-function setPainterOpacity(o) {
+function setPainterOpacity(o, onTop = false) {
   PAINTER.model?.traverse(part => {
     if (!part.isMesh) return;
+    // Over the scroll, nothing of the terrain may cut him off at the knees: drawn on top, whole.
+    if (part.material.depthTest === onTop) { part.material.depthTest = !onTop; part.material.needsUpdate = true; }
     // In the transparent pass, after the scroll (renderOrder 6000), so he stays in front of it.
     if (!part.material.transparent) { part.material.transparent = true; part.material.needsUpdate = true; }
     part.renderOrder = 6001;
@@ -2771,7 +2845,13 @@ function updateRujuan(dt) {
       d = Math.atan2(Math.sin(d), Math.cos(d));
       PAINTER.model.rotation.y += d * Math.min(1, dt * 4); // turns, not snaps
     }
-    setPainterOpacity(1 - smooth(14, 16.2, tw)); // smaller with distance, then gone into the scroll
+    setPainterOpacity(1 - smooth(14, 16.2, tw), tw > 5); // smaller with distance, then gone into the scroll
+    { // the traveller turns to watch him
+      const d = PAINTER.model.position.clone().sub(traveller.position);
+      let turn = Math.atan2(-d.x, -d.z) - traveller.rotation.y;
+      turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+      traveller.rotation.y += turn * Math.min(1, dt * 2.5);
+    }
     if (tw > 16.4) PAINTER.model.visible = false;
   }
   // Watched from outside the pavilion's west side, so the roof never hides him.
@@ -2916,6 +2996,7 @@ function resetErrands() {
   PAINTER.met = false;
   PAINTER.returned = false;
   returnedThings.visible = false;
+  deskThings.clear();
   paintState.corner = null;
   drawPainting();
   errand.phase = 'none';
@@ -3021,15 +3102,23 @@ function interact() {
     PAINTER.returned = true;
     cuePickup();
     returnedThings.clear();
-    const side = new THREE.Vector3(-PAINTER.facing.z, 0, PAINTER.facing.x).multiplyScalar(.9);
+    deskThings.clear();
+    paintingStand.updateMatrixWorld(true);
+    const deskRay = new THREE.Raycaster();
     for (const key of ['dish', 'brush']) {
       if (!pickups[key].taken) continue;
       const thing = pickups[key].group.clone();
       thing.visible = true;
       thing.children.forEach(child => { if (child.geometry?.type === 'RingGeometry') child.visible = false; });
-      const offset = key === 'dish' ? .5 : -.5;
-      thing.position.set(PAINTER.at.x + side.x + PAINTER.facing.x * offset, PAINTER.at.y + .05, PAINTER.at.z + side.z + PAINTER.facing.z * offset);
-      returnedThings.add(thing);
+      // Set down on the desk top at either end of the scroll (Xingyi: they were left on the floor).
+      const spot = paintingStand.localToWorld(new THREE.Vector3(key === 'dish' ? .9 : -.9, 3, .3));
+      deskRay.set(spot, DOWN);
+      const hit = deskRay.intersectObjects(paintingStand.children, true)[0];
+      const local = paintingStand.worldToLocal(hit ? hit.point.clone() : spot.setY(paintingStand.position.y + .9));
+      thing.position.copy(local);
+      thing.rotation.set(0, key === 'brush' ? .3 : 0, 0);
+      thing.scale.setScalar(.7);
+      deskThings.add(thing);
     }
     returnedThings.visible = true;
     cueCapture();
@@ -3151,6 +3240,7 @@ function updateLanding(dt, elapsed) {
 }
 
 function update(dt, elapsed) {
+  updateWaymarks(elapsed);
   for (const boat of farBoats) { // a slow bob on the current
     const t = elapsed + boat.userData.phase;
     boat.position.y = -.38 + Math.sin(t * .8) * .04;
