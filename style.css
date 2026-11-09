@@ -259,6 +259,9 @@ h1 span { font-size: .66em; letter-spacing: 0; }
 .rujuan-last { margin-top: 28px; font-size: clamp(24px, 3vw, 38px); }
 .rujuan-title { margin: 46px 0 0; font-family: 'Noto Serif SC', 'Songti SC', serif; font-size: clamp(30px, 4vw, 52px); color: #1d3a36; letter-spacing: .2em; opacity: 0; transition: opacity 2.6s ease; }
 .rujuan-title span { font-size: .6em; }
+.rujuan-caption { position: absolute; left: 50%; top: 11%; transform: translateX(-50%); width: min(90vw, 900px); margin: 0; text-align: center;
+  font-family: 'Noto Serif SC', 'Songti SC', serif; font-size: clamp(18px, 2.1vw, 27px); letter-spacing: .22em; color: #fbf4e2; opacity: 0;
+  text-shadow: 0 1px 3px rgba(20, 16, 8, .7), 0 0 22px rgba(20, 16, 8, .45); pointer-events: none; }
 .rujuan-credits { margin-top: 26px; text-align: center; font-size: 11px; line-height: 1.9; letter-spacing: .08em; color: #5a5446; opacity: 0; transition: opacity 2s ease; }
 .rujuan-credits p { margin: 0; }
 .rujuan-credits .rujuan-disclosure { margin-top: 6px; color: #7a6f5a; }

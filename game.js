@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup } from './sound.js?v=101';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup } from './sound.js?v=105';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=101';
+} from './look.js?v=105';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1279,11 +1279,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=101`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=105`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=101`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=105`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1815,6 +1815,11 @@ loadModel('wangximeng', gltf => {
 function playPainterClip(name) {
   const rig = PAINTER.rig, next = rig?.[name];
   if (!next || rig.current === next) return;
+  if (name === 'standup') { // once, a little brisker, holding the last (standing) pose
+    next.setLoop(THREE.LoopOnce, 1);
+    next.clampWhenFinished = true;
+    next.timeScale = 1.5;
+  }
   next.reset().play();
   if (rig.current) rig.current.crossFadeTo(next, .8, false);
   rig.current = next;
@@ -2616,7 +2621,10 @@ function startRujuan() {
     PAINTER.model.visible = true;
     PAINTER.model.position.copy(PAINTER.at);
   }
-  playPainterClip('walk');
+  playPainterClip('standup'); // he puts down the brush and rises first
+  setPainterOpacity(1);
+  placeRujuanPainting();
+  rjCaps.forEach(c => { c.style.opacity = 0; });
 }
 // The three distances (郭熙《林泉高致》), shared by the cover and the ending: 平远 along the river,
 // 深远 from beside the bridge to the far peaks, 高远 from the village up the main peak.
@@ -2640,62 +2648,112 @@ function pathPoint(u) {
   const i = Math.min(RJ_PATH.length - 2, Math.floor(f)), k = f - i;
   return [RJ_PATH[i][0] + (RJ_PATH[i + 1][0] - RJ_PATH[i][0]) * k, RJ_PATH[i][1] + (RJ_PATH[i + 1][1] - RJ_PATH[i][1]) * k];
 }
+// The ending: he stands (STAND s), walks to the pavilion steps and down them, crosses the terrace
+// toward the bridge view; the painting fades in LEAD s after he starts walking. t keeps the
+// original schedule of the painting and the closing lines.
+// Xingyi: the game world must become the original scroll with HIM in it (his real figure, from
+// behind), so the double meaning lands: you went into the scroll; so does the painter (入卷).
+const RJ_STAND = 3.2;
+const rjCaps = [...document.querySelectorAll('.rujuan-caption')];
+let rjPainting = null;
+function placeRujuanPainting() {
+  if (!rjPainting) {
+    const tex = textureLoader.load('./assets/qianli-bridge-commons-v0-4.jpg');
+    tex.colorSpace = THREE.SRGBColorSpace;
+    rjPainting = new THREE.Mesh(new THREE.PlaneGeometry(34 * 4200 / 896, 34),
+      // Drawn over the whole world (no depth test); only he is drawn after it, on top.
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false, toneMapped: false }));
+    rjPainting.renderOrder = 6000;
+    scene.add(rjPainting);
+  }
+  const facingAngle = Math.atan2(PAINTER.facing.x, PAINTER.facing.z);
+  const steps = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), facingAngle + Math.PI);
+  const at = PAINTER.at.clone().addScaledVector(steps, 5.4).addScaledVector(PAINTER.facing, 34);
+  rjPainting.position.set(at.x, heightAt(SUMMIT_TERRACE.x, SUMMIT_TERRACE.z) - 4, at.z);
+  rjPainting.rotation.set(0, facingAngle + Math.PI, 0); // faces back toward him and the camera
+  rjPainting.material.opacity = 0;
+  rjPainting.visible = true;
+}
+function setPainterOpacity(o) {
+  PAINTER.model?.traverse(part => {
+    if (!part.isMesh) return;
+    // In the transparent pass, after the scroll (renderOrder 6000), so he stays in front of it.
+    if (!part.material.transparent) { part.material.transparent = true; part.material.needsUpdate = true; }
+    part.renderOrder = 6001;
+    part.material.opacity = o;
+  });
+}
 function updateRujuan(dt) {
   rj.t += dt;
-  const t = rj.t;
+  // tw: seconds since he started walking. t: the closing schedule (silk lines from t = 20).
+  const tw = rj.t - RJ_STAND, t = tw + 3.5;
   // 3D: he walks off along his gaze; the camera stands behind the traveller and watches him go.
   if (PAINTER.model) {
-    // He steps aside round the painting stone, then walks on toward the cliff edge.
-    const walked = Math.min(t, 6) * 1.25; // matches the in-place walk clip's stride
-    const side = new THREE.Vector3(-PAINTER.facing.z, 0, PAINTER.facing.x);
-    const turn = Math.hypot(2.6, 1.0);
-    const lateral = walked < turn ? 2.6 * walked / turn : 2.6;
-    const ahead = walked < turn ? 1.0 * walked / turn : 1.0 + walked - turn;
-    const x = PAINTER.at.x + side.x * lateral + PAINTER.facing.x * ahead;
-    const z = PAINTER.at.z + side.z * lateral + PAINTER.facing.z * ahead;
-    PAINTER.model.position.set(x, heightAt(x, z) + (lateral < 2.3 ? .33 : 0), z);
-    const heading = walked < turn ? side.clone().multiplyScalar(2.6).addScaledVector(PAINTER.facing, 1.0) : PAINTER.facing;
-    PAINTER.model.rotation.y = Math.atan2(heading.x, heading.z);
-    if (t > 6.5) PAINTER.model.visible = false; // he is in the painting now
+    // Rise; then to the pavilion's steps (west), down them, and across the terrace toward the view.
+    const facingAngle = Math.atan2(PAINTER.facing.x, PAINTER.facing.z);
+    if (tw <= 0) {
+      PAINTER.model.position.copy(PAINTER.at);
+      PAINTER.model.rotation.y = facingAngle;
+    } else {
+      playPainterClip('walk');
+      const steps = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), facingAngle + Math.PI);
+      const walked = tw * 1.2, deckRun = 3.3, stairRun = 2.1;
+      const base = PAINTER.at.clone().addScaledVector(steps, deckRun + stairRun);
+      let pos, heading;
+      if (walked < deckRun + stairRun) {
+        pos = PAINTER.at.clone().addScaledVector(steps, walked);
+        const down = THREE.MathUtils.clamp((walked - deckRun) / stairRun, 0, 1);
+        pos.y = THREE.MathUtils.lerp(PAINTER.at.y, heightAt(base.x, base.z), down);
+        heading = steps;
+      } else {
+        pos = base.clone().addScaledVector(PAINTER.facing, walked - deckRun - stairRun);
+        // On over the edge at the terrace's height: by then the ground is the scroll.
+        pos.y = Math.max(heightAt(pos.x, pos.z), heightAt(base.x, base.z) - .2);
+        heading = PAINTER.facing;
+      }
+      PAINTER.model.position.copy(pos);
+      const want = Math.atan2(heading.x, heading.z);
+      let d = want - PAINTER.model.rotation.y;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      PAINTER.model.rotation.y += d * Math.min(1, dt * 4); // turns, not snaps
+    }
+    setPainterOpacity(1 - smooth(14, 16.2, tw)); // smaller with distance, then gone into the scroll
+    if (tw > 16.4) PAINTER.model.visible = false;
   }
   // Watched from outside the pavilion's west side, so the roof never hides him.
   const side = new THREE.Vector3(-PAINTER.facing.z, 0, PAINTER.facing.x);
   let dip = 1; // how far the silk closes over the world (1 = solid)
-  if (t < 20) {
-    const eye = PAINTER.at.clone().addScaledVector(side, 7.5).addScaledVector(PAINTER.facing, -1.5);
-    eye.y = PAINTER.at.y + 3.2;
-    camera.position.lerp(eye, Math.min(1, dt * 2));
-    camera.lookAt(PAINTER.at.x + PAINTER.facing.x * 8 + side.x * 2.5, PAINTER.at.y + 1.2, PAINTER.at.z + PAINTER.facing.z * 8 + side.z * 2.5);
+  if (t < 20.3) {
+    if (tw < 4.6) { // he rises and goes to the steps: watched from the pavilion's side
+      const eye = PAINTER.at.clone().addScaledVector(side, 7.5).addScaledVector(PAINTER.facing, -1.5);
+      eye.y = PAINTER.at.y + 3.2;
+      camera.position.lerp(eye, Math.min(1, dt * 2));
+      const m = PAINTER.model?.position || PAINTER.at; // keep him in frame as he rises and walks
+      camera.lookAt(m.x + PAINTER.facing.x * 2.5, m.y + 1.1, m.z + PAINTER.facing.z * 2.5);
+    } else if (PAINTER.model) { // then from behind him; it stops following, so he walks away and grows small
+      if (tw < 8.5) rj.follow = PAINTER.model.position.clone();
+      const w = rj.follow, back = smooth(5, 14, tw);
+      const eye = w.clone().addScaledVector(PAINTER.facing, -(5 + 5 * back));
+      eye.y = Math.max(w.y + 2.4 + 1.6 * back, heightAt(eye.x, eye.z) + 2.2);
+      camera.position.lerp(eye, Math.min(1, dt * 1.6));
+      camera.lookAt(w.x + PAINTER.facing.x * 24, w.y + 1.2, w.z + PAINTER.facing.z * 24);
+    }
+    if (rjPainting) rjPainting.material.opacity = smooth(5.5, 10.5, tw);
+    rjCaps[0].style.opacity = smooth(6.5, 7.6, tw) * (1 - smooth(10.6, 11.6, tw));
+    rjCaps[1].style.opacity = smooth(11.8, 12.9, tw) * (1 - smooth(16.4, 17.4, tw));
   } else {
+    if (rjPainting) rjPainting.visible = false;
+    rjCaps.forEach(c => { c.style.opacity = 0; });
     // Under the closing lines the landscape he painted passes behind the silk, as the scroll
     // unrolls: 平远 along the river, 深远 from the bridge to the far peaks, 高远 up the main peak.
     dip = landscapeShot(t - 20, 9).dip;
   }
 
-  // 2D: the painting, sized to the track's height.
-  const H = rujuanTrack.clientHeight, W = H * 4200 / 896;
-  const u = smooth(6.5, 18, t);
-  const [fx, fy] = pathPoint(u);
-  const figureX = fx / 2000 * W, figureY = fy / 427 * H;
-  const tx = window.innerWidth / 2 - figureX;
-  // The painting no longer rolls up from one side (it read as squashed): it drifts a little nearer
-  // as it fades, as if the viewer were drawn in after him.
-  const drawIn = smooth(17.5, 20.6, t);
-  rujuanTrack.style.opacity = smooth(3.5, 6.5, t) * (1 - drawIn);
-  rujuanTrack.style.transform = `translate(${tx}px, -50%) scale(${1 + .07 * drawIn})`;
-  rujuanTrack.style.transformOrigin = `${figureX}px 50%`;
-  const bob = Math.abs(Math.sin(t * 6)) * 1.5;
-  rujuanFigure.style.left = `${figureX}px`;
-  rujuanFigure.style.top = `${figureY - bob}px`;
-  // He walks deeper in, smaller with distance, then melts into the mist rather than vanishing.
-  const melt = smooth(14.5, 17.5, t);
-  rujuanFigure.style.opacity = smooth(4.5, 6.5, t) * (1 - melt);
-  rujuanFigure.style.filter = `blur(${(melt * 3).toFixed(2)}px)`;
-  rujuanFigure.style.transform = `translate(-50%, -100%) scale(${1 - .45 * u}) rotate(${(Math.sin(t * 6) * 2).toFixed(2)}deg)`;
+  rujuanTrack.style.opacity = 0; // the 2D painting and stand-in figure are retired: he walks in himself
 
   // Once the painting appears the world is gone: bare silk behind it, so no 3D shows round the edges.
   // From the closing lines on the silk thins so the passing landscape shows through, faintly.
-  rujuan.style.background = `rgba(226, 214, 184, ${smooth(3.5, 6.5, t) * (1 - smooth(20, 23, t) * (1 - dip) * .62)})`;
+  rujuan.style.background = `rgba(226, 214, 184, ${smooth(19.2, 20.3, t) * (1 - smooth(20.3, 23, t) * (1 - dip) * .62)})`;
   rujuanSilk.style.opacity = smooth(20, 22, t);
   const steps = [[22.5, '.rujuan-line:nth-of-type(1)'], [25.5, '.rujuan-line:nth-of-type(2)'], [29.5, '.rujuan-last'], [33, '.rujuan-title'], [35, '.rujuan-credits'], [37, '.rujuan-actions']];
   steps.forEach(([at, selector]) => { if (t > at) rujuan.querySelector(selector).classList.add('is-shown'); });
@@ -2706,6 +2764,7 @@ function updateRujuan(dt) {
 }
 function closeRujuan(toScroll) {
   document.querySelector('.topline').style.visibility = '';
+  if (rjPainting) rjPainting.visible = false;
   rujuan.hidden = true;
   rujuan.classList.remove('is-active');
   rj.focused = false;
