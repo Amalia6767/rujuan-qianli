@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=110';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=111';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=110';
+} from './look.js?v=111';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1100,9 +1100,11 @@ function createEnvironment() {
   const post = new THREE.Mesh(new THREE.CylinderGeometry(.13, .16, 1.1, 8), mats.trunk);
   post.position.set(MOORING_POST.x, .55, MOORING_POST.z);
   post.castShadow = true;
+  post.name = 'simplePost';
   scene.add(post);
   const postCap = new THREE.Mesh(new THREE.SphereGeometry(.15, 8, 6), mats.eave);
   postCap.position.set(MOORING_POST.x, 1.12, MOORING_POST.z);
+  postCap.name = 'simplePostCap';
   scene.add(postCap);
   loadTrees();
   return { river, mists, mountains };
@@ -1266,7 +1268,7 @@ const textureLoader = new THREE.TextureLoader();
 // Tripo's built forms (bridge, houses, pavilions, boat, interiors) come with bright orange,
 // photo-like wood. Painted into the scroll instead: muted toward grey-ochre, and an ink line
 // darkens every silhouette edge, as the bridge and roofs are outlined in the painting.
-const PAINTED = /^(bridge|house_|halfway_pavilion|riverboat|hall_vignette|loom_vignette)/;
+const PAINTED = /^(bridge|house_|halfway_pavilion|riverboat|hall_vignette|loom_vignette|boat_|mooring_post|cargo_sacks)/;
 function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: share of the original saturation
   material.onBeforeCompile = shader => {
     shader.fragmentShader = shader.fragmentShader
@@ -1279,11 +1281,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=110`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=111`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=110`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=111`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1914,6 +1916,55 @@ loadModel('riverboat', gltf => {
   BOAT_POINTS.stand.set(2.55, .36, 0);
   landing.coil.position.set(3.05, .42, .2);
 }, '船');
+
+// ---------- 第二批 Tripo 模型：系缆木桩、货包、江上远舟 ----------
+function fitModel(model, size, axis = 'y') { // scale so the bounding box's <axis> side equals size, base on y = 0, centred
+  const box = new THREE.Box3().setFromObject(model), dims = box.getSize(new THREE.Vector3());
+  model.scale.multiplyScalar(size / dims[axis]);
+  const fitted = new THREE.Box3().setFromObject(model), centre = fitted.getCenter(new THREE.Vector3());
+  model.position.x -= centre.x; model.position.z -= centre.z; model.position.y -= fitted.min.y;
+  model.traverse(part => { if (part.isMesh) { part.castShadow = true; part.material.roughness = 1; part.material.metalness = 0; } });
+  return model;
+}
+
+loadModel('mooring_post', gltf => {
+  const model = fitModel(gltf.scene, 1.2);
+  const holder = new THREE.Group();
+  holder.add(model);
+  holder.position.set(MOORING_POST.x, 0, MOORING_POST.z);
+  scene.add(holder);
+  for (const name of ['simplePost', 'simplePostCap']) { const old = scene.getObjectByName(name); if (old) old.visible = false; }
+}, '木桩');
+
+// Each cargo box keeps its logic (visible / carried / delivered); only its look is swapped.
+function dressBox(mesh, template) {
+  const { width, height, depth } = mesh.geometry.parameters;
+  [...mesh.children].forEach(child => mesh.remove(child));
+  mesh.material = new THREE.MeshBasicMaterial({ visible: false });
+  const look = fitModel(template.clone(true), Math.max(width, depth) * 1.15, 'x');
+  look.position.y -= height / 2;
+  mesh.add(look);
+}
+loadModel('cargo_sacks', gltf => {
+  const template = gltf.scene;
+  const xz = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3());
+  if (xz.z > xz.x) template.rotation.y = Math.PI / 2;
+  [...landing.pile, carriedBundle, doorstep.children[0]].forEach(mesh => dressBox(mesh, template));
+}, '货包');
+
+// Distant boats: the river was empty but for the ferry; the painting's river has many.
+const farBoats = [];
+[['boat_sail', -22, -14, .4], ['boat_fishing', -46, -27, 2.4], ['boat_fishing', 33, -25, -2.7], ['boat_sail', 58, -9, 1.2]].forEach(([name, x, z, yaw], i) => {
+  loadModel(name, gltf => {
+    const holder = new THREE.Group();
+    holder.add(fitModel(gltf.scene, 3.4, 'x'));
+    holder.position.set(x, -.38, z);
+    holder.rotation.y = yaw;
+    holder.userData.phase = i * 1.7;
+    scene.add(holder);
+    farBoats.push(holder);
+  }, '远舟');
+});
 
 function setRope(from, to, sag) {
   const points = Array.from({ length: 9 }, (_, i) => {
@@ -3100,6 +3151,11 @@ function updateLanding(dt, elapsed) {
 }
 
 function update(dt, elapsed) {
+  for (const boat of farBoats) { // a slow bob on the current
+    const t = elapsed + boat.userData.phase;
+    boat.position.y = -.38 + Math.sin(t * .8) * .04;
+    boat.rotation.z = Math.sin(t * .6) * .025;
+  }
   if (['play', 'framing', 'ending', 'end'].includes(state.mode)) updateLanding(dt, elapsed);
   if (state.mode === 'play') {
     const vx = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
