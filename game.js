@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=115';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=117';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=115';
+} from './look.js?v=117';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1297,11 +1297,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=115`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=117`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=115`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=117`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2782,11 +2782,12 @@ function pathPoint(u) {
 const RJ_STAND = 3.2;
 const rjCaps = [...document.querySelectorAll('.rujuan-caption')];
 let rjPainting = null;
+const RJ_PAINT_H = 96, RJ_PAINT_Y = 26; // Xingyi: the scroll fills the screen; its keyed-out sky sits above the frame
 function placeRujuanPainting() {
   if (!rjPainting) {
     const tex = textureLoader.load('./assets/qianli-mountains-cutout.webp?v=1'); // the mountains only: the silk sky keyed out
     tex.colorSpace = THREE.SRGBColorSpace;
-    rjPainting = new THREE.Mesh(new THREE.PlaneGeometry(34 * 4200 / 896, 34),
+    rjPainting = new THREE.Mesh(new THREE.PlaneGeometry(RJ_PAINT_H * 4200 / 896, RJ_PAINT_H),
       // Drawn over the whole world (no depth test); only he is drawn after it, on top.
       new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false, toneMapped: false }));
     rjPainting.renderOrder = 6000;
@@ -2795,7 +2796,7 @@ function placeRujuanPainting() {
   const facingAngle = Math.atan2(PAINTER.facing.x, PAINTER.facing.z);
   const steps = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), facingAngle + Math.PI);
   const at = PAINTER.at.clone().addScaledVector(steps, 5.4).addScaledVector(PAINTER.facing, 34);
-  rjPainting.position.set(at.x, heightAt(SUMMIT_TERRACE.x, SUMMIT_TERRACE.z) - 4, at.z);
+  rjPainting.position.set(at.x, heightAt(SUMMIT_TERRACE.x, SUMMIT_TERRACE.z) + RJ_PAINT_Y, at.z);
   rjPainting.rotation.set(0, facingAngle + Math.PI, 0); // faces back toward him and the camera
   rjPainting.material.opacity = 0;
   rjPainting.visible = true;
@@ -2824,8 +2825,16 @@ function updateRujuan(dt) {
       PAINTER.model.rotation.y = facingAngle;
     } else {
       playPainterClip('walk');
+      const rig = PAINTER.rig;
+      if (rig?.walk && rig.standup) { // Xingyi: the robe tore open mid-stride; a shorter stride keeps it whole
+        rig.walk.stopFading(); rig.standup.stopFading();
+        rig.standup.enabled = true;
+        rig.standup.setEffectiveWeight(.5);
+        rig.walk.setEffectiveWeight(.5);
+        rig.walk.timeScale = .85;
+      }
       const steps = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), facingAngle + Math.PI);
-      const walked = tw * 1.2, deckRun = 3.3, stairRun = 2.1;
+      const walked = tw * 1.05, deckRun = 3.3, stairRun = 2.1;
       const base = PAINTER.at.clone().addScaledVector(steps, deckRun + stairRun);
       let pos, heading;
       if (walked < deckRun + stairRun) {
@@ -2939,10 +2948,10 @@ function tryMove(dx, dz) {
     }
     if (onSpan) {
       // From land the deck is reached only at its two ends.
-      if (Math.abs(p.z - BRIDGE.z) >= BRIDGE.half - .2 && Math.abs(nextX - BRIDGE.x) <= BRIDGE.halfWidth) {
+      if (Math.abs(p.z - BRIDGE.z) >= BRIDGE.half - .2) { // stepping on at an end; a slanting approach is eased onto the deck
         state.onBridge = true;
         state.floor = null;
-        p.x = nextX; p.z = nextZ;
+        p.x = THREE.MathUtils.clamp(nextX, BRIDGE.x - BRIDGE.halfWidth, BRIDGE.x + BRIDGE.halfWidth); p.z = nextZ;
       }
       return;
     }
@@ -3307,6 +3316,9 @@ function update(dt, elapsed) {
       note('过桥到对岸');
       updateGoal();
       say('回望来路，长桥已在身后。桥边的船、岸上的人，都小了，渐渐与两岸山色融在一处。', 6000);
+      if (errand.phase === 'carrying') setTimeout(() => {
+        if (errand.phase === 'carrying') say('肩上的货，送到右手边山庄长屋的门前。', 5200);
+      }, 6200);
     }
     if (state.pendingEndAt && performance.now() > state.pendingEndAt) win();
 
@@ -3327,6 +3339,10 @@ function update(dt, elapsed) {
     // Under the pavilion roof the camera stays in the centre aisle (columns stand either side),
     // behind the traveller along the bridge and above the hat.
     const along = Math.sign(cos) || 1;
+    if (underBridgeRoof) { // playtest: dragged sideways, W pushed into the rail while the view looked down the aisle
+      const want = along > 0 ? 0 : Math.PI;
+      state.camYaw += Math.atan2(Math.sin(want - state.camYaw), Math.cos(want - state.camYaw)) * Math.min(1, dt * 6);
+    }
     // Walking off the pavilion, a long follow camera would trail back into its roof: keep it
     // on the traveller's side of the pavilion until the traveller is well clear.
     if (state.onBridge && !underBridgeRoof && Math.sign(z - BRIDGE.z) === -along) reach = Math.min(reach, Math.max(3.2, Math.abs(z - BRIDGE.z) - 7.3));
