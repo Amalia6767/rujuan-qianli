@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=117';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=118';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=117';
+} from './look.js?v=118';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -396,6 +396,15 @@ function peakBlocks(x, z) {
 // x = ±0.416 model units); the rest is stretched lengthways so its clean ends rest on the banks,
 // where a little raised earth buries them. Height and width keep the old scale.
 const BRIDGE = { x: 8, z: -16, half: 22, halfWidth: 1.6, deck: null };
+// The pavilion's west stair runs down to a low landing over the water (measured from the model).
+const SIDE_STAIR = { z: -16, half: 1.0, x0: .95, steps: null };
+const onSideStair = position => state.onBridge && SIDE_STAIR.steps && position.x < BRIDGE.x - BRIDGE.halfWidth - .01;
+function stairHeight(x) {
+  const t = SIDE_STAIR.steps, x1 = BRIDGE.x - BRIDGE.halfWidth;
+  const i = THREE.MathUtils.clamp((x - SIDE_STAIR.x0) / (x1 - SIDE_STAIR.x0) * (t.length - 1), 0, t.length - 1);
+  const a = Math.floor(i), b = Math.min(t.length - 1, a + 1);
+  return THREE.MathUtils.lerp(t[a], t[b], i - a);
+}
 const BRIDGE_SCALE = 45 / 0.9818, BRIDGE_LENGTH_SCALE = 22 / .416;
 function deckHeight(z) {
   const t = BRIDGE.deck;
@@ -404,6 +413,7 @@ function deckHeight(z) {
   return THREE.MathUtils.lerp(t[a], t[b], i - a);
 }
 function groundUnder(position) {
+  if (onSideStair(position)) return stairHeight(position.x);
   if (state.onBridge && BRIDGE.deck) return deckHeight(position.z);
   if (state.floor != null) return state.floor; // inside a house, on its raised floor
   return heightAt(position.x, position.z);
@@ -1297,11 +1307,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=117`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=118`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=117`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=118`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1514,6 +1524,13 @@ loadModel('bridge', gltf => {
     deck.push(hit ? hit.point.y : 0);
   }
   BRIDGE.deck = deck;
+  const steps = [], x1 = BRIDGE.x - BRIDGE.halfWidth;
+  for (let i = 0; i <= 60; i++) {
+    ray.set(new THREE.Vector3(SIDE_STAIR.x0 + i * (x1 - SIDE_STAIR.x0) / 60, baseY + .118 * scale, SIDE_STAIR.z), new THREE.Vector3(0, -1, 0));
+    const hit = ray.intersectObject(model, true)[0];
+    steps.push(hit ? hit.point.y : deckHeight(SIDE_STAIR.z));
+  }
+  SIDE_STAIR.steps = steps;
 }, '长桥');
 
 // Far-bank houses. Mesh raycasts against ~50k triangles are too slow per frame, so each
@@ -2135,6 +2152,7 @@ function currentBank() {
   if (Math.hypot(p.x - SUMMIT_TERRACE.x, p.z - SUMMIT_TERRACE.z) < SUMMIT_TERRACE.r + 1) return 'peak';
   // On the deck just outside the pavilion's low eaves (inside, the eaves fill the view).
   if (state.onBridge && Math.abs(p.z - BRIDGE.z) > 7.8 && Math.abs(p.z - BRIDGE.z) < 13.5) return 'bridge';
+  if (onSideStair(p) && p.x < 3) return 'bridge'; // the low landing off the pavilion, open to the river
   if (traveller.position.z > .5) return 'near';
   if (traveller.position.z < RIVER.far - .2) return 'far';
   return null;
@@ -2941,8 +2959,12 @@ function tryMove(dx, dz) {
     const onSpan = Math.abs(nextZ - BRIDGE.z) < BRIDGE.half && Math.abs(nextX - BRIDGE.x) < BRIDGE.halfWidth + .7;
     if (state.onBridge) {
       // On the deck: stay between the rails; stepping off either end returns to land.
-      p.x = THREE.MathUtils.clamp(nextX, BRIDGE.x - BRIDGE.halfWidth, BRIDGE.x + BRIDGE.halfWidth);
-      p.z = nextZ;
+      // Mid-hall the west rail opens onto the side stair and its landing (playtest: it was walled off).
+      const rail = BRIDGE.x - BRIDGE.halfWidth;
+      const z = p.x < rail - .01 ? THREE.MathUtils.clamp(nextZ, SIDE_STAIR.z - SIDE_STAIR.half, SIDE_STAIR.z + SIDE_STAIR.half) : nextZ;
+      const open = SIDE_STAIR.steps && Math.abs(z - SIDE_STAIR.z) <= SIDE_STAIR.half;
+      p.x = THREE.MathUtils.clamp(nextX, open ? SIDE_STAIR.x0 : rail, BRIDGE.x + BRIDGE.halfWidth);
+      p.z = z;
       if (Math.abs(p.z - BRIDGE.z) >= BRIDGE.half) state.onBridge = false;
       return;
     }
@@ -3328,10 +3350,11 @@ function update(dt, elapsed) {
     // any wall behind the traveller, instead of looking down through a faded roof.
     // Under the bridge pavilion (roof lifted in tools/edit_bridge.py v5, ceiling ≈ deck + 2.7)
     // a short, low third-person camera stays below the beams.
-    const underBridgeRoof = state.onBridge && Math.abs(z - BRIDGE.z) < 6.3; // the hall, stretched with the bridge
+    const onStair = onSideStair(traveller.position);
+    const underBridgeRoof = state.onBridge && !onStair && Math.abs(z - BRIDGE.z) < 6.3; // the hall, stretched with the bridge
     const indoors = state.floor != null || underBridgeRoof;
     const floorY = state.floor ?? groundUnder(traveller.position);
-    let reach = underBridgeRoof ? 3.6 : indoors ? 4.2 : 10.9;
+    let reach = underBridgeRoof ? 3.6 : onStair ? 3.4 : indoors ? 4.2 : 10.9;
     if (state.floor != null) {
       const back = houseHits(stepProbe.set(x, floorY + 1.75, z), stepDirection.set(sin, 0, cos), reach)[0];
       if (back) reach = Math.max(.2, back.distance - .3);
@@ -3339,6 +3362,11 @@ function update(dt, elapsed) {
     // Under the pavilion roof the camera stays in the centre aisle (columns stand either side),
     // behind the traveller along the bridge and above the hat.
     const along = Math.sign(cos) || 1;
+    const across = Math.sign(sin) || 1; // on the side stair: behind the traveller, along the stair
+    if (onStair) {
+      const want = across > 0 ? Math.PI / 2 : -Math.PI / 2;
+      state.camYaw += Math.atan2(Math.sin(want - state.camYaw), Math.cos(want - state.camYaw)) * Math.min(1, dt * 6);
+    }
     if (underBridgeRoof) { // playtest: dragged sideways, W pushed into the rail while the view looked down the aisle
       const want = along > 0 ? 0 : Math.PI;
       state.camYaw += Math.atan2(Math.sin(want - state.camYaw), Math.cos(want - state.camYaw)) * Math.min(1, dt * 6);
@@ -3347,13 +3375,14 @@ function update(dt, elapsed) {
     // on the traveller's side of the pavilion until the traveller is well clear.
     if (state.onBridge && !underBridgeRoof && Math.sign(z - BRIDGE.z) === -along) reach = Math.min(reach, Math.max(3.2, Math.abs(z - BRIDGE.z) - 7.3));
     // Under the hall: off the right shoulder (columns stand ~2.5 out each side), head clear of the roof line.
-    const cx = underBridgeRoof ? BRIDGE.x - along * .85 : x + sin * reach, cz = underBridgeRoof ? z + along * reach : z + cos * reach;
+    const cx = underBridgeRoof ? BRIDGE.x - along * .85 : onStair ? x + across * reach : x + sin * reach;
+    const cz = underBridgeRoof ? z + along * reach : onStair ? SIDE_STAIR.z + .45 : z + cos * reach;
     const onBridge = state.onBridge;
     // A camera hovering over the bridge (player just off it) lifts above the pavilion
     // roof; otherwise the roof can fill the entire view.
     const clearingRoof = !onBridge && Math.abs(cx - 8) < 4.8 && Math.abs(cz - BRIDGE.z) < 7.5;
     // Backed against a wall the camera rises to look over the traveller's hat.
-    const cameraHeight = underBridgeRoof ? 1.95 : indoors ? (reach < 1.5 ? 2.15 : 1.75) : clearingRoof ? 9.2 : (onBridge ? 4.5 : 5.9);
+    const cameraHeight = underBridgeRoof ? 1.95 : onStair ? 2.1 : indoors ? (reach < 1.5 ? 2.15 : 1.75) : clearingRoof ? 9.2 : (onBridge ? 4.5 : 5.9);
     // Ride over whichever is higher, the ground under the player or under the camera.
     const ground = indoors ? floorY : Math.max(groundUnder(traveller.position), heightAt(cx, cz));
     const targetCamera = new THREE.Vector3(cx, ground + cameraHeight, cz);
@@ -3370,6 +3399,7 @@ function update(dt, elapsed) {
     camera.position.lerp(targetCamera, Math.min(1, dt * (clearingRoof ? 7 : 4.2)));
     const followTarget = underBridgeRoof
       ? new THREE.Vector3(BRIDGE.x - along * .4, groundUnder(traveller.position) + 1.7, z - along * 6) // down the passage
+      : onStair ? new THREE.Vector3(x - across * 6, groundUnder(traveller.position) + 1.3, SIDE_STAIR.z)
       : new THREE.Vector3(x - sin * 5.2, groundUnder(traveller.position) + (indoors ? 1.45 : 1.25), z - cos * 5.2);
     // 登顶 (the climax): the first time on the summit terrace the camera rises and draws back over
     // his shoulder until the whole landscape lies open toward the bridge, then hands control back.
