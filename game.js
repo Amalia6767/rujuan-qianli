@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=118';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=119';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=118';
+} from './look.js?v=119';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1307,11 +1307,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=118`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=119`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=118`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=119`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1828,6 +1828,42 @@ returnedThings.visible = false;
 scene.add(returnedThings);
 
 // Until the Mixamo clips arrive the model is static; with clips it sits, then walks away.
+// Mixamo's auto-skin split the long robe between the two legs, so it tore open down the back
+// whenever they parted (playtest 11/10). Robe vertices (outside the trouser legs, hip to hem,
+// measured in bind pose: legs at x ±0.125, trousers within ~0.1 of them, hem at ~0.3) follow
+// the hips plus an even share of both thighs instead, so the cloth hangs as one skirt.
+function stiffenRobe(mesh) {
+  const bones = mesh.skeleton.bones, at = name => bones.findIndex(b => b.name === `mixamorig${name}`);
+  const hips = at('Hips'), lUp = at('LeftUpLeg'), rUp = at('RightUpLeg');
+  const legs = new Set(['LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase'].map(at));
+  if (hips < 0 || lUp < 0 || rUp < 0) return;
+  const pos = mesh.geometry.attributes.position, si = mesh.geometry.attributes.skinIndex, sw = mesh.geometry.attributes.skinWeight;
+  for (let v = 0; v < pos.count; v++) {
+    const x = pos.getX(v), y = pos.getY(v), z = pos.getZ(v);
+    if (y < .22 || y > 1) continue;
+    const d = Math.min(Math.hypot(x - .125, z), Math.hypot(x + .125, z));
+    const f = THREE.MathUtils.smoothstep(d, .1, .135) * THREE.MathUtils.smoothstep(y, .22, .3);
+    if (!f) continue;
+    const w = new Map();
+    let legW = 0;
+    for (let k = 0; k < 4; k++) {
+      const b = si.getComponent(v, k), wt = sw.getComponent(v, k);
+      if (!wt) continue;
+      if (legs.has(b)) { legW += wt * f; w.set(b, (w.get(b) || 0) + wt * (1 - f)); }
+      else w.set(b, (w.get(b) || 0) + wt);
+    }
+    w.set(hips, (w.get(hips) || 0) + legW * .4);
+    w.set(lUp, (w.get(lUp) || 0) + legW * .3);
+    w.set(rUp, (w.get(rUp) || 0) + legW * .3);
+    const top = [...w].sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const sum = top.reduce((t, [, wt]) => t + wt, 0) || 1;
+    for (let k = 0; k < 4; k++) {
+      si.setComponent(v, k, top[k]?.[0] ?? 0);
+      sw.setComponent(v, k, (top[k]?.[1] ?? 0) / sum);
+    }
+  }
+  si.needsUpdate = sw.needsUpdate = true;
+}
 loadModel('wangximeng', gltf => {
   const model = gltf.scene;
   const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
@@ -1841,6 +1877,7 @@ loadModel('wangximeng', gltf => {
     // Auto-skinning folds the long robe through itself where the legs bend; drawing both
     // sides shows cloth there instead of dark holes.
     part.material.side = THREE.DoubleSide;
+    if (part.isSkinnedMesh) stiffenRobe(part);
   });
   const holder = new THREE.Group();
   holder.add(model);
@@ -2191,7 +2228,8 @@ const HINTS = {
   far: [['V'], '取景 · 回头，把长桥和来路收进画框'],
   climb: [['W'], '沿山路往上走，到山顶再取一景'],
   peak: [['V'], '取景 · 从山顶看你走过的路'],
-  bridge: [['V'], '沿桥再往前走几步，出了亭檐便可望江取景'],
+  bridge: [['V'], '出了亭檐，或从亭侧台阶下到水边平台，便可凭栏取景'],
+  bridgeView: [['V'], '取景 · 凭栏望江'],
   cargo: [['E'], '接过这担货'],
   deliver: [['E'], '把货放在长屋门前'],
   dish: [['E'], '拾起'],
@@ -2209,7 +2247,7 @@ function pickHint() {
   if (!state.crossed && shots.near && !boatState.tiedBy && Math.hypot(traveller.position.x - BOAT_DOCK.x, traveller.position.z - BOAT_DOCK.z) > 7) return 'descend';
   if (!coachState.walked) return 'walk';
   if (currentBank() === 'peak' && !shots.peak) return 'peak';
-  if (state.onBridge && Math.abs(traveller.position.z - BRIDGE.z) < 12 && !shots.bridge) return 'bridge';
+  if (state.onBridge && Math.abs(traveller.position.z - BRIDGE.z) < 12 && !shots.bridge) return currentBank() === 'bridge' ? 'bridgeView' : 'bridge';
   if (state.crossed && !shots.far && traveller.position.z < RIVER.far - 2) return 'far';
   if (shots.far && !shots.peak && traveller.position.z > -52) return 'climb';
   if (!state.crossed && !shots.near && currentBank() === 'near' && traveller.position.z < 16) return 'near';
@@ -2511,7 +2549,7 @@ function openFraming() {
   if (state.mode !== 'play') return;
   const bank = currentBank();
   if (!bank) {
-    say(state.onBridge ? '沿着桥再往前走几步，出了亭檐，就能望见两岸。' : '到桥心或岸上，便可以取景。', 3200);
+    say(state.onBridge ? '出了亭檐，或从亭侧台阶下到水边平台，就能望见两岸。' : '到桥心或岸上，便可以取景。', 3200);
     return;
   }
   state.mode = 'framing';
@@ -3351,6 +3389,10 @@ function update(dt, elapsed) {
     // Under the bridge pavilion (roof lifted in tools/edit_bridge.py v5, ceiling ≈ deck + 2.7)
     // a short, low third-person camera stays below the beams.
     const onStair = onSideStair(traveller.position);
+    // On the waterside landing the view becomes the traveller's own eyes, looking out over the river
+    // (playtest: the follow camera showed his back instead of the scenery). Drag still turns the view.
+    const firstPerson = onStair && x < 2.4;
+    if (state.mode === 'play') traveller.visible = !firstPerson;
     const underBridgeRoof = state.onBridge && !onStair && Math.abs(z - BRIDGE.z) < 6.3; // the hall, stretched with the bridge
     const indoors = state.floor != null || underBridgeRoof;
     const floorY = state.floor ?? groundUnder(traveller.position);
@@ -3363,7 +3405,7 @@ function update(dt, elapsed) {
     // behind the traveller along the bridge and above the hat.
     const along = Math.sign(cos) || 1;
     const across = Math.sign(sin) || 1; // on the side stair: behind the traveller, along the stair
-    if (onStair) {
+    if (onStair && !firstPerson) {
       const want = across > 0 ? Math.PI / 2 : -Math.PI / 2;
       state.camYaw += Math.atan2(Math.sin(want - state.camYaw), Math.cos(want - state.camYaw)) * Math.min(1, dt * 6);
     }
@@ -3396,8 +3438,11 @@ function update(dt, elapsed) {
         if (slope > head) targetCamera.y = Math.max(targetCamera.y, head + (slope - head) / t);
       }
     }
+    if (firstPerson) targetCamera.set(x, groundUnder(traveller.position) + 1.55, z);
     camera.position.lerp(targetCamera, Math.min(1, dt * (clearingRoof ? 7 : 4.2)));
-    const followTarget = underBridgeRoof
+    const followTarget = firstPerson
+      ? new THREE.Vector3(x - sin * 10, groundUnder(traveller.position) + 1.2, z - cos * 10) // out over the water
+      : underBridgeRoof
       ? new THREE.Vector3(BRIDGE.x - along * .4, groundUnder(traveller.position) + 1.7, z - along * 6) // down the passage
       : onStair ? new THREE.Vector3(x - across * 6, groundUnder(traveller.position) + 1.3, SIDE_STAIR.z)
       : new THREE.Vector3(x - sin * 5.2, groundUnder(traveller.position) + (indoors ? 1.45 : 1.25), z - cos * 5.2);
@@ -3406,7 +3451,7 @@ function update(dt, elapsed) {
     if (!state.summitRevealed && Math.hypot(x - SUMMIT_TERRACE.x, z - SUMMIT_TERRACE.z) < SUMMIT_TERRACE.r - 1) {
       state.summitRevealed = true;
       state.revealT = 0;
-      cueSummit();
+      // playtest: the summit chord over the reveal was too sudden; the music carries it instead.
       say('到了山顶，眼前豁然开阔。长桥、村舍与来时的山路，都在群山之间。', 5600);
     }
     if (state.revealT != null && state.revealT < 7.5) {
