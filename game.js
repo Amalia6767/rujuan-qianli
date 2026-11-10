@@ -2129,7 +2129,7 @@ for (const [name, x, z, yaw, size, axis, sink] of [
   ['villager_wash', -1.5, -37.2, Math.PI / 2, 1.15, 'y', .05], // far bank west of the bridge end, kneeling at the water (seen from the deck)
   ['villager_wood', -9.5, -53.8, Math.PI + 2.09, 1.75, 'y', .05], // beside the climb, coming down toward the player
   ['villager_fish', 12.6, 4.8, 0, 1.35, 'y', .05],             // near bank just east of the bridge, rod out over the river
-  ['fishing_net', -9.5, -12.4, Math.PI / 2, 4.6, 'y', 1.1], // in the river before the landing, poles into the water
+  ['fishing_net', -27, -31.5, Math.PI / 2 + .5, 3.7, 'y', .9], // far off by the far bank, a small detail in the river view (Xingyi: not up front)
 ]) loadModel(name, gltf => {
   const holder = new THREE.Group();
   holder.add(fitModel(gltf.scene, size, axis));
