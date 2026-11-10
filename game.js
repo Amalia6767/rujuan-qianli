@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=119';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=120';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=119';
+} from './look.js?v=120';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1307,11 +1307,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=119`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=120`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=119`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=120`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2090,6 +2090,55 @@ const farBoats = [];
     farBoats.push(holder);
   }, '远舟');
 });
+
+// Birds (Xingyi 11/10): a few ink strokes of birds wheeling over the river and the far hills,
+// drawn in code (no model to load). Each flock loops a slow ellipse in a loose V; wings flap,
+// then glide. Fog fades the far flock into the haze like the painting's distance.
+const birdMaterial = new THREE.MeshBasicMaterial({ color: 0x45463d, side: THREE.DoubleSide, fog: true });
+const wingGeometry = new THREE.BufferGeometry();
+wingGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, .16, 0, 0, -.14, .62, .05, -.2, 0, 0, .16, .62, .05, -.2, .34, .03, .06], 3));
+const flocks = [
+  { c: [0, 13, -20], r: [46, 14], period: 74, dir: 1, n: 5 },   // over the river and the bridge
+  { c: [-12, 23, -62], r: [34, 11], period: 92, dir: -1, n: 4 }, // along the far hills, under the summit
+  { c: [14, 10, 14], r: [24, 9], period: 58, dir: 1, n: 3 },     // the near bank, seen from the opening hill
+].map((f, fi) => {
+  f.birds = [];
+  for (let i = 0; i < f.n; i++) {
+    const bird = new THREE.Group();
+    const left = new THREE.Mesh(wingGeometry, birdMaterial), right = new THREE.Mesh(wingGeometry, birdMaterial);
+    right.scale.x = -1;
+    bird.add(left, right);
+    const body = new THREE.Mesh(new THREE.ConeGeometry(.07, .5, 4), birdMaterial);
+    body.rotation.x = Math.PI / 2;
+    bird.add(body);
+    bird.scale.setScalar(1.25 + (i % 2) * .15);
+    // loose V behind the leader: alternate sides, each further back
+    bird.userData = { left, right, side: i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2), back: Math.ceil(i / 2), phase: fi * 2.1 + i * .9 };
+    scene.add(bird);
+    f.birds.push(bird);
+  }
+  return f;
+});
+const birdAhead = new THREE.Vector3();
+function updateBirds(elapsed) {
+  for (const f of flocks) {
+    const a0 = f.dir * elapsed * Math.PI * 2 / f.period;
+    for (const bird of f.birds) {
+      const u = bird.userData;
+      const a = a0 - f.dir * u.back * .045; // each further back along the loop
+      const lane = u.side * 1.1;           // and out to one side
+      const x = f.c[0] + Math.cos(a) * (f.r[0] + lane), z = f.c[2] + Math.sin(a) * (f.r[1] + lane);
+      const y = f.c[1] + Math.sin(elapsed * .6 + u.phase) * .5 + u.back * .25;
+      bird.position.set(x, y, z);
+      birdAhead.set(f.c[0] + Math.cos(a + f.dir * .02) * (f.r[0] + lane), y, f.c[2] + Math.sin(a + f.dir * .02) * (f.r[1] + lane));
+      bird.lookAt(birdAhead);
+      const glide = Math.max(0, Math.sin(elapsed * .45 + u.phase)); // stretches of flapping, then a glide
+      const flap = Math.sin(elapsed * 8 + u.phase * 3) * .65 * glide + .12;
+      u.left.rotation.z = flap;
+      u.right.rotation.z = -flap;
+    }
+  }
+}
 
 function setRope(from, to, sag) {
   const points = Array.from({ length: 9 }, (_, i) => {
@@ -3310,6 +3359,7 @@ function updateLanding(dt, elapsed) {
 
 function update(dt, elapsed) {
   updateWaymarks(elapsed);
+  updateBirds(elapsed);
   for (const boat of farBoats) { // a slow bob on the current
     const t = elapsed + boat.userData.phase;
     boat.position.y = -.38 + Math.sin(t * .8) * .04;
