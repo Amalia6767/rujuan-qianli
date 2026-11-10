@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=120';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=121';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=120';
+} from './look.js?v=121';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1294,7 +1294,7 @@ const textureLoader = new THREE.TextureLoader();
 // Tripo's built forms (bridge, houses, pavilions, boat, interiors) come with bright orange,
 // photo-like wood. Painted into the scroll instead: muted toward grey-ochre, and an ink line
 // darkens every silhouette edge, as the bridge and roofs are outlined in the painting.
-const PAINTED = /^(bridge|house_|halfway_pavilion|riverboat|hall_vignette|loom_vignette|boat_|mooring_post|cargo_sacks|water_mill)/;
+const PAINTED = /^(bridge|house_|halfway_pavilion|riverboat|hall_vignette|loom_vignette|boat_|mooring_post|cargo_sacks|water_mill|fishing_net)/;
 function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: share of the original saturation
   material.onBeforeCompile = shader => {
     shader.fragmentShader = shader.fragmentShader
@@ -1307,11 +1307,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=120`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=121`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=120`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=121`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1319,7 +1319,7 @@ async function loadModelParts(name) {
     part.material.map = map;
     if (PAINTED.test(name)) paintIntoScroll(part.material, ...(/^(house_|hall_|loom_)/.test(name) ? [.25, [.86, .8, .7]] : [.5])); // houses: yellow walls toned to the bridge's grey-tan wood
     // The figures get the same ink outline, with most of their colour kept, so they belong to the painting.
-    else if (/^(traveller|boatperson|wangximeng)/.test(name)) paintIntoScroll(part.material, .72, [.97, .95, .9]);
+    else if (/^(traveller|boatperson|wangximeng|villager_)/.test(name)) paintIntoScroll(part.material, .72, [.97, .95, .9]);
     part.material.needsUpdate = true;
   });
   return gltf;
@@ -2120,6 +2120,25 @@ const flocks = [
   return f;
 });
 const birdAhead = new THREE.Vector3();
+
+// Batch 3 (Xingyi's Tripo figures, 11/10): still villagers along the water and the hill path, so
+// 「山水深处，原来也住着寻常人家」 has people in it; and a fishing lift-net in the river in front
+// of the pavilion's waterside landing, as a foreground for the view from there. No collision:
+// they stand off the walking lines.
+for (const [name, x, z, yaw, size, axis, sink] of [
+  ['villager_wash', -1.5, -37.2, Math.PI / 2, 1.15, 'y', .05], // far bank west of the bridge end, kneeling at the water (seen from the deck)
+  ['villager_wood', -9.5, -53.8, Math.PI + 2.09, 1.75, 'y', .05], // beside the climb, coming down toward the player
+  ['villager_fish', 12.6, 4.8, 0, 1.35, 'y', .05],             // near bank just east of the bridge, rod out over the river
+  ['fishing_net', -9.5, -12.4, Math.PI / 2, 4.6, 'y', 1.1], // in the river before the landing, poles into the water
+]) loadModel(name, gltf => {
+  const holder = new THREE.Group();
+  holder.add(fitModel(gltf.scene, size, axis));
+  const ground = name === 'fishing_net' ? -.4 : Math.max(0, heightAt(x, z));
+  holder.position.set(x, ground - sink, z);
+  holder.rotation.y = yaw;
+  holder.name = name;
+  scene.add(holder);
+}, name.startsWith('villager') ? '村民' : '渔罾');
 function updateBirds(elapsed) {
   for (const f of flocks) {
     const a0 = f.dir * elapsed * Math.PI * 2 / f.period;
