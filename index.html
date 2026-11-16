@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#e7dfc9" />
     <meta name="description" content="《入卷：千里江山》——从两岸回望同一座桥，留下自己的游历小卷。" />
     <title>入卷 · 千里江山</title>
-    <link rel="stylesheet" href="./style.css?v=121" />
+    <link rel="stylesheet" href="./style.css?v=126" />
   </head>
   <body>
     <main id="app" aria-label="入卷：千里江山 3D 游戏">
@@ -64,9 +64,27 @@
             <span class="keycap">V</span>
             <span id="frame-button-text">取景</span>
           </button>
+          <button id="keys-toggle" class="scroll-button keys-button" type="button" aria-label="查看按键说明">
+            <span class="keycap">H</span>
+            <span>按键</span>
+          </button>
           <button id="sound-toggle" class="scroll-button sound-button" type="button" aria-label="开启环境音" aria-pressed="false">声音：关</button>
         </div>
       </section>
+
+      <aside id="keys-guide" class="keys-guide" aria-label="按键说明" hidden>
+        <p class="label">按键</p>
+        <dl>
+          <dt><span class="keycap">W</span><span class="keycap">A</span><span class="keycap">S</span><span class="keycap">D</span></dt><dd>行走（按住 Shift 快走）</dd>
+          <dt>拖动鼠标</dt><dd>转动视角</dd>
+          <dt><span class="keycap">V</span></dt><dd>取景；取景时拖动鼠标选景</dd>
+          <dt><span class="keycap">空格</span></dt><dd>取景时，把眼前一景收入卷中</dd>
+          <dt><span class="keycap">E</span></dt><dd>与人和物打交道（接绳、拾物、题壁）</dd>
+          <dt><span class="keycap">M</span></dt><dd>展卷，对照原作与来路</dd>
+          <dt><span class="keycap">Esc</span></dt><dd>暂停，或退出当前画面</dd>
+        </dl>
+        <button id="keys-close" class="text-button" type="button">知道了 <span class="keycap">H</span></button>
+      </aside>
 
       <div id="toast" class="toast" role="status" aria-live="polite"></div>
       <div id="coach" class="coach" role="status" aria-live="polite" hidden><span id="coach-keys" class="coach-keys"></span><span id="coach-text"></span></div>
@@ -164,12 +182,14 @@
         <div class="frame-outline" aria-hidden="true"></div>
         <p class="frame-label">取景 · <span id="frame-bank">此岸</span></p>
         <ul id="frame-checklist" class="frame-checklist" aria-label="框里有什么">
+          <li class="frame-rule">有桥或船即可取景</li>
           <li data-item="bridge">桥</li>
           <li data-item="boat">船</li>
           <li data-item="third">对岸</li>
         </ul>
         <div class="frame-bottom">
           <p id="frame-status" role="status"></p>
+          <p class="frame-howto">拖动鼠标，或按 W A S D 转动视角</p>
           <div class="frame-actions">
             <button id="take-frame" class="primary-button" type="button">收入画中 <span class="keycap">空格</span></button>
             <button id="leave-frame" class="frame-exit" type="button">继续行旅 <span class="keycap">Esc</span></button>
@@ -205,6 +225,7 @@
           <img class="rujuan-painting" src="./assets/qianli-bridge-commons-v0-4.jpg" alt="《千里江山图》局部，长桥至群峰" />
           <svg class="rujuan-figure" viewBox="0 0 16 40" aria-hidden="true"><g stroke="#2a2620" stroke-width=".8" stroke-linejoin="round"><path class="rujuan-sleeve" d="M4.4 11 L1.2 24 L3.2 24.6 L5.8 13 Z" fill="#efe6d2" /><path d="M4 10 Q8 8 12 10 L14 38 Q8 39.6 2 38 Z" fill="#efe6d2" /><path d="M4.7 17 H11.3" stroke="#3a3128" stroke-width="1.5" /><ellipse cx="8" cy="5.6" rx="2.3" ry="2.5" fill="#e9dcc4" /><path d="M5.7 5.2 Q5.8 3 8 3 Q10.2 3 10.3 5.2 Q8 4.3 5.7 5.2 Z" fill="#2a2620" /><circle cx="8" cy="2.2" r="1.3" fill="#2a2620" /></g></svg>
         </div>
+        <p id="rujuan-skip" class="rujuan-skip">Esc 跳至卷末</p>
         <p class="rujuan-caption">希孟十八岁，不到半年，画成了这卷《千里江山图》。</p>
         <p class="rujuan-caption">少年的背影渐渐远去，隐入层叠的青绿。</p>
         <div class="rujuan-silk">
@@ -238,7 +259,8 @@
           </figure>
           <button id="save-scroll" class="text-button save-scroll" type="button" hidden>收藏小卷 ↓</button>
           <p id="elapsed-time" class="elapsed-time"></p>
-          <button id="rujuan-button" class="primary-button" type="button">收卷</button>
+          <p class="finale-line">小卷已成，行旅未完。收起小卷，画中还有最后一幕。</p>
+          <button id="rujuan-button" class="primary-button" type="button">收卷 · 观看终章</button>
           <button id="end-restart-button" class="text-button" type="button">再走一次</button>
           <button id="end-return-button" class="text-button" type="button">回到画中再看看</button>
           <details class="play-log">
@@ -253,6 +275,6 @@
       <div id="error" class="error" role="alert" hidden>三维画面未能加载。请尝试桌面 Chrome、Edge 或 Safari 的较新版本。</div>
     </main>
     <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
-    <script type="module" src="./game.js?v=121"></script>
+    <script type="module" src="./game.js?v=126"></script>
   </body>
 </html>

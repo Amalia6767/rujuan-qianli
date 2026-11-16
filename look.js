@@ -293,7 +293,7 @@ void main() {
 }`;
 const PATH_FRAG = /* glsl */ `
 ${COMMON}
-uniform vec3 uGround, uPath, uInkCol;
+uniform vec3 uGround, uPath, uInkCol, uMid;
 uniform float uInk;
 varying vec3 vW; varying vec3 vN; varying float vSide;
 void main() {
@@ -381,7 +381,7 @@ earthMap.colorSpace = THREE.SRGBColorSpace;
 earthMap.anisotropy = 4;
 export const groundMaterial = () => shader(BASIC_VERT, GROUND_FRAG, { uEarthMap: { value: earthMap }, ...pick('uGround', 'uWet', 'uInkCol', 'uInk', 'uMid', 'uBlankAt', 'uBlankR',
   'uBase', 'uTop', 'uRim', 'uCoreCol', 'uGlow', 'uNacre', 'uBack', 'uMtInk', 'uCoreMix', 'uFlow') });
-export const pathMaterial = () => shader(PATH_VERT, PATH_FRAG, pick('uGround', 'uPath', 'uInkCol', 'uInk'),
+export const pathMaterial = () => shader(PATH_VERT, PATH_FRAG, pick('uGround', 'uPath', 'uInkCol', 'uInk', 'uMid'),
   { transparent: true, depthWrite: false, side: THREE.DoubleSide });
 export const celadon = uniformKey => shader(BASIC_VERT, CELADON_FRAG, { uColor: U[uniformKey] }, { side: THREE.DoubleSide });
 

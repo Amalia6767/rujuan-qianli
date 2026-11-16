@@ -303,3 +303,28 @@ h1 span { font-size: .66em; letter-spacing: 0; }
 .toast { font-size: 14px; padding: 9px 18px; max-width: min(88vw, 520px); }
 .coach { font-size: 14px; padding: 8px 14px; gap: 10px; }
 .coach .keycap { font-size: 11px; padding: 3px 6px; }
+
+/* v122 (Harry's playtest): the framing contract and how to turn the view, stated in the frame itself. */
+.frame-checklist li.frame-rule { background: none; border-color: transparent; color: rgba(255,249,231,.92); font-size: 12px; letter-spacing: .08em; text-shadow: 0 1px 6px #173732; padding-right: 2px; }
+.frame-checklist li.frame-rule::before { content: ''; }
+.frame-bottom p.frame-howto { background: none; padding: 0; font-size: 11px; letter-spacing: .1em; color: rgba(255,249,231,.82); text-shadow: 0 1px 6px #173732; }
+
+/* v122 (Harry's playtest): the journey list reads against trees; a reopenable key guide; the finale is announced. */
+.hud { opacity: 1; }
+.hud .hud-actions { opacity: .7; transition: opacity .3s; }
+.hud:hover .hud-actions, .hud:focus-within .hud-actions { opacity: 1; }
+.goal-block { background: rgba(250,245,226,.9); backdrop-filter: blur(5px); box-shadow: 0 4px 18px rgba(18,49,49,.14); }
+.goal-block .label { color: #6f5236; }
+.goal-list li { color: #17302f; }
+.goal-list li.is-done { color: #5f7169; }
+.goal-list li.is-optional { color: #6b5034; }
+.keys-guide { position: absolute; z-index: 7; right: 18px; bottom: 74px; width: min(86vw, 300px); padding: 14px 18px 12px; background: rgba(250,245,226,.96); border: 1px solid rgba(173,128,81,.55); box-shadow: 0 10px 34px rgba(18,49,49,.22); color: #1f3d3c; font-family: 'Noto Serif SC', serif; font-size: 13px; }
+.keys-guide .label { margin: 0 0 8px; font-size: 10px; letter-spacing: .2em; color: #6f5236; }
+.keys-guide dl { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; margin: 0 0 10px; align-items: baseline; }
+.keys-guide dt { display: flex; gap: 3px; white-space: nowrap; color: #6b5034; }
+.keys-guide dd { margin: 0; line-height: 1.5; }
+.keys-guide .keycap { opacity: 1; background: #fff; }
+.keys-guide .text-button { font-size: 12px; }
+.ending-panel .finale-line { margin: 14px 0 4px; font-size: 14px; color: #6b5034 !important; letter-spacing: .08em; }
+.rujuan-skip { position: absolute; right: 22px; bottom: 16px; margin: 0; font-size: 11px; letter-spacing: .14em; color: rgba(42,43,36,.62); text-shadow: 0 0 6px rgba(255,250,232,.9); transition: opacity .8s; }
+.rujuan-skip.is-gone { opacity: 0; }

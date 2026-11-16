@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=121';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=126';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=121';
+} from './look.js?v=126';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -66,6 +66,10 @@ const endScreen = document.getElementById('end-screen');
 const inscribeScreen = document.getElementById('inscribe-screen');
 const endRestartButton = document.getElementById('end-restart-button');
 const elapsedTime = document.getElementById('elapsed-time');
+const keysGuide = document.getElementById('keys-guide');
+document.getElementById('keys-toggle').addEventListener('click', () => { keysGuide.hidden = !keysGuide.hidden; canvas.focus(); });
+document.getElementById('keys-close').addEventListener('click', () => { keysGuide.hidden = true; canvas.focus(); });
+const rujuanSkip = document.getElementById('rujuan-skip');
 const keepLine = document.getElementById('keep-line');
 const endReturnButton = document.getElementById('end-return-button');
 const rujuan = document.getElementById('rujuan');
@@ -1307,11 +1311,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=121`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=126`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=121`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=126`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2544,6 +2548,13 @@ function returnToWorld() {
 
 function updateFrameCamera() {
   const eye = new THREE.Vector3(traveller.position.x, groundUnder(traveller.position) + 1.7, traveller.position.z);
+  // On the summit the view is taken from the brow of the terrace, facing the river, so the
+  // terrace's own slope does not fill the lower half of the picture (Harry's playtest). The
+  // direction and tilt stay the player's.
+  if (state.frameBank === 'peak') {
+    eye.set(SUMMIT_TERRACE.x + SUMMIT_FACING.x * (SUMMIT_TERRACE.r + .6), 0, SUMMIT_TERRACE.z + SUMMIT_FACING.z * (SUMMIT_TERRACE.r + .6));
+    eye.y = heightAt(eye.x, eye.z) + 2.1;
+  }
   const cosPitch = Math.cos(state.framePitch);
   const direction = new THREE.Vector3(
     Math.sin(state.frameYaw) * cosPitch,
@@ -2566,7 +2577,18 @@ function inFrame(point) {
   // Framed but hidden behind a tree or rock does not count.
   sightRay.set(camera.position, towards);
   sightRay.far = camera.position.distanceTo(point) - .5;
-  return sightRay.intersectObjects(occluders.map(item => item.object), true).length === 0;
+  if (sightRay.intersectObjects(occluders.map(item => item.object), true).length) return false;
+  // Nor behind a shoulder of hillside (Harry's playtest: from the summit a foreground slope hid
+  // the bridge while the checklist still counted it).
+  // Sampled finely near the eye (the terrace's own edge is the usual culprit), coarser beyond.
+  const span = camera.position.distanceTo(point);
+  for (let d = .5; d < span - 1; d += d < 30 ? .5 : 2.5) {
+    const t = d / span;
+    const x = camera.position.x + (point.x - camera.position.x) * t, z = camera.position.z + (point.z - camera.position.z) * t;
+    if (heightAt(x, z) > camera.position.y + (point.y - camera.position.y) * t + .03) return false;
+  }
+  // Nor behind a house, a pavilion post or its rail.
+  return houseHits(camera.position, towards, span - 1).length === 0;
 }
 
 // What a framing view holds. A kept view must hold the bridge or the boat; the third
@@ -2583,8 +2605,10 @@ function lensBlocked() {
   }
   return false;
 }
+// The bridge counts when a fair stretch of it shows: two or more of its deck points and roof.
+const BRIDGE_MARKS = [[-34, 2.2], [-25, 2.5], [-16, 2.6], [-16, 6.4], [-7, 2.5], [2, 2.2]].map(([z, y]) => new THREE.Vector3(8, y, z));
 function frameItems() {
-  const bridge = inFrame(new THREE.Vector3(8, 2.45, BRIDGE.z));
+  const bridge = BRIDGE_MARKS.filter(inFrame).length >= 2;
   const boatCentre = landing.boat.position.clone().add(new THREE.Vector3(0, .8, 0));
   // From the summit everything is far below, so the distance limits widen.
   const reach = state.frameBank === 'peak' ? 140 : 50;
@@ -2601,12 +2625,18 @@ function itemNames(items) {
 function refreshFrameFeedback() {
   const items = frameItems();
   frameChecklist.querySelector('[data-item="third"]').textContent = thirdLabel();
+  frameChecklist.querySelector('.frame-rule').textContent = state.frameBank === 'bridge' ? '凭栏所见皆可取景' : '有桥或船即可取景';
   for (const key of ['bridge', 'boat', 'third']) frameChecklist.querySelector(`[data-item="${key}"]`).classList.toggle('is-in', items[key]);
   const names = itemNames(items);
+  // One contract, said the same way everywhere: the bridge or the boat makes a view; the rest is a suggestion.
+  const missing = [!items.bridge && '桥', !items.boat && '船', !items.third && thirdLabel()].filter(Boolean);
+  const more = missing.length ? `再转一转，还可以把${joinCN(missing)}也收进来。` : '三样都在画中了。';
   const message = items.blocked ? '柱子或栏杆挡住了视线。按 Esc 退出，稍微移动后再试。'
     : state.frameBank === 'bridge' ? `${names.length ? `框中有${joinCN(names)}。` : ''}站在桥心望出去，按空格取景。`
-    : !(items.bridge || items.boat) ? '桥和船还未入框。拖动鼠标，或按 A / D 调整方向。'
-    : `框中有${joinCN(names)}。按空格取景。`;
+    : !(items.bridge || items.boat) ? (state.frameBank === 'peak'
+      ? '山坡挡住了桥和船。拖动鼠标转一转；还看不到，就按 Esc 退出，往亭前崖边走几步。'
+      : '桥或船入框，便可取景。拖动鼠标，或按 A / D 转动视角。')
+    : `框中有${joinCN(names)}，可以取景了，按空格。${more}`;
   if (message !== state.frameSubject) {
     state.frameSubject = message;
     frameStatus.textContent = message;
@@ -2628,6 +2658,11 @@ function openFraming() {
   const dx = aim.x - traveller.position.x, dz = aim.z - traveller.position.z;
   state.frameYaw = Math.atan2(dx, -dz);
   state.framePitch = THREE.MathUtils.clamp(Math.atan2(aim.y - groundUnder(traveller.position) - 1.7, Math.hypot(dx, dz)), -.3, .2);
+  if (bank === 'peak') { // aimed from the brow (see updateFrameCamera): bridge left of centre, the village and river beside it
+    const ex = SUMMIT_TERRACE.x + SUMMIT_FACING.x * (SUMMIT_TERRACE.r + .6), ez = SUMMIT_TERRACE.z + SUMMIT_FACING.z * (SUMMIT_TERRACE.r + .6);
+    state.frameYaw = Math.atan2(14 - ex, -(BRIDGE.z - ez));
+    state.framePitch = -.2;
+  }
   state.frameSubject = '';
   frameDrag = null;
   keys.clear();
@@ -2938,6 +2973,7 @@ function setPainterOpacity(o, onTop = false) {
 }
 function updateRujuan(dt) {
   rj.t += dt;
+  rujuanSkip.classList.toggle('is-gone', rj.t >= 20);
   // tw: seconds since he started walking. t: the closing schedule (silk lines from t = 20).
   const tw = rj.t - RJ_STAND, t = tw + 3.5;
   // 3D: he walks off along his gaze; the camera stands behind the traveller and watches him go.
@@ -3054,15 +3090,33 @@ function backToWorld() {
   say('还可以四处走走。重新取景，便能再看你的小卷。', 4200);
 }
 
+// Pushing against something for a while brings one quiet line about where the way is (Harry:
+// a delayed hint beats a permanent arrow). At most once every 14 seconds.
+const stall = { t: 0, last: -99 };
+function noteStall(dt, moved, wanted) {
+  stall.t = moved < wanted * .25 ? stall.t + dt : Math.max(0, stall.t - dt * 2);
+  if (stall.t < 2.2 || state.walkTime - stall.last < 14) return;
+  stall.t = 0;
+  stall.last = state.walkTime;
+  const p = traveller.position;
+  const byRiver = !state.onBridge && (Math.abs(p.z - RIVER.near) < 3 || Math.abs(p.z - RIVER.far) < 3);
+  say(state.onBridge ? '栏杆挡着。顺着桥面往前走。'
+    : byRiver ? '这里是江水，过不去。' + (Math.abs(p.x - BRIDGE.x) < 1.5 ? '对准桥头再走。' : `长桥在${(p.x < BRIDGE.x) === (p.z > BRIDGE.z) ? '右' : '左'}手边，从桥头上桥。`)
+    : p.z < -50 ? '这里坡太陡，上不去。沿着浅色的土路走，它一路通到山顶。'
+    : '前面过不去，换个方向试试。', 4200);
+}
 function tryMove(dx, dz) {
   const p = traveller.position;
   const nextX = THREE.MathUtils.clamp(p.x + dx, -39, 39);
   // The far bank ends just behind the village, before the mountains' foothills.
   const nextZ = THREE.MathUtils.clamp(p.z + dz, -90, 39);
+  let steps = [[nextX, nextZ], [nextX, p.z], [p.x, nextZ]];
   if (!BRIDGE.deck) { // bridge not loaded yet: the old low crossing
     if (inRiver(nextZ) && Math.abs(nextX - BRIDGE.x) > 1.75) return;
   } else {
-    const onSpan = Math.abs(nextZ - BRIDGE.z) < BRIDGE.half && Math.abs(nextX - BRIDGE.x) < BRIDGE.halfWidth + .7;
+    // Harry's playtest: a slanting approach stuck at the bridgehead. The mouth is wider now (the
+    // step is eased onto the deck), and the bank beside it slides and funnels toward the bridge.
+    const onSpan = Math.abs(nextZ - BRIDGE.z) < BRIDGE.half && Math.abs(nextX - BRIDGE.x) < BRIDGE.halfWidth + 1.7;
     if (state.onBridge) {
       // On the deck: stay between the rails; stepping off either end returns to land.
       // Mid-hall the west rail opens onto the side stair and its landing (playtest: it was walled off).
@@ -3076,17 +3130,20 @@ function tryMove(dx, dz) {
     }
     if (onSpan) {
       // From land the deck is reached only at its two ends.
-      if (Math.abs(p.z - BRIDGE.z) >= BRIDGE.half - .2) { // stepping on at an end; a slanting approach is eased onto the deck
+      if (Math.abs(p.z - BRIDGE.z) >= BRIDGE.half - 1.25) { // stepping on at an end, or from the bank just beside it
         state.onBridge = true;
         state.floor = null;
         p.x = THREE.MathUtils.clamp(nextX, BRIDGE.x - BRIDGE.halfWidth, BRIDGE.x + BRIDGE.halfWidth); p.z = nextZ;
       }
       return;
     }
-    if (inRiver(nextZ)) return; // the river
+    if (inRiver(nextZ)) { // the river: slide along the bank, drifting toward the bridge when it is near
+      const off = BRIDGE.x - nextX, pull = Math.abs(off) < 9 ? Math.sign(off) * Math.min(Math.abs(off), Math.hypot(dx, dz) * .9) : 0;
+      steps = [[THREE.MathUtils.clamp(nextX + pull, -39, 39), p.z]];
+    }
   }
   // Among the houses: try the full step, then slide along whichever wall is in the way.
-  for (const [x, z] of [[nextX, nextZ], [nextX, p.z], [p.x, nextZ]]) {
+  for (const [x, z] of steps) {
     if (peakBlocks(x, z) || painterBlocks(x, z)) continue;
     const floor = houseStep(x, z);
     if (floor === false) continue;
@@ -3394,7 +3451,9 @@ function update(dt, elapsed) {
       // Walking is relative to the view: W always goes away from the camera.
       const cos = Math.cos(state.camYaw), sin = Math.sin(state.camYaw);
       const nx = (vx * cos + vz * sin) / length, nz = (vz * cos - vx * sin) / length;
+      const fromX = traveller.position.x, fromZ = traveller.position.z;
       tryMove(nx * speed * dt, nz * speed * dt);
+      noteStall(dt, Math.hypot(traveller.position.x - fromX, traveller.position.z - fromZ), speed * dt);
       traveller.rotation.y = Math.atan2(-nx,-nz);
       state.walkTime += dt;
       // A footstep at each foot fall (half a swing of the stride), wood underfoot on the bridge and floors.
@@ -3618,6 +3677,13 @@ window.addEventListener('keydown', event => {
     event.preventDefault();
     if (state.mode === 'play') openScroll();
     else if (state.mode === 'scroll') returnToWorld();
+  } else if (event.code === 'KeyH' && (state.mode === 'play' || !keysGuide.hidden)) {
+    event.preventDefault();
+    keysGuide.hidden = !keysGuide.hidden;
+    keys.clear();
+  } else if (event.code === 'Escape' && !keysGuide.hidden) {
+    event.preventDefault();
+    keysGuide.hidden = true;
   } else if (event.code === 'Escape' && state.mode === 'rujuan') {
     event.preventDefault();
     rj.t = Math.max(rj.t, 21);
