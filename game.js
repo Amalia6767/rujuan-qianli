@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=126';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=131';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=126';
+} from './look.js?v=131';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1311,11 +1311,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=126`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=131`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=126`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=131`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1846,7 +1846,10 @@ function stiffenRobe(mesh) {
     const x = pos.getX(v), y = pos.getY(v), z = pos.getZ(v);
     if (y < .22 || y > 1) continue;
     const d = Math.min(Math.hypot(x - .125, z), Math.hypot(x + .125, z));
-    const f = THREE.MathUtils.smoothstep(d, .1, .135) * THREE.MathUtils.smoothstep(y, .22, .3);
+    // The trousers under the skirt follow it too (full run 11/16: with only the cloth steadied,
+    // the thighs swung out through the back of the robe); from just above the hem down, the
+    // shins and feet keep their own stride.
+    const f = Math.max(THREE.MathUtils.smoothstep(d, .1, .135) * THREE.MathUtils.smoothstep(y, .22, .3), THREE.MathUtils.smoothstep(y, .3, .42));
     if (!f) continue;
     const w = new Map();
     let legW = 0;
@@ -2567,7 +2570,7 @@ function updateFrameCamera() {
 }
 
 const sightRay = new THREE.Raycaster();
-function inFrame(point) {
+function inFrame(point, pastHouses = false) { // pastHouses: the point is itself a rooftop, so buildings do not hide it
   const towards = point.clone().sub(camera.position).normalize();
   const gaze = new THREE.Vector3();
   camera.getWorldDirection(gaze);
@@ -2588,7 +2591,7 @@ function inFrame(point) {
     if (heightAt(x, z) > camera.position.y + (point.y - camera.position.y) * t + .03) return false;
   }
   // Nor behind a house, a pavilion post or its rail.
-  return houseHits(camera.position, towards, span - 1).length === 0;
+  return pastHouses || houseHits(camera.position, towards, span - 1).length === 0;
 }
 
 // What a framing view holds. A kept view must hold the bridge or the boat; the third
@@ -2611,9 +2614,13 @@ function frameItems() {
   const bridge = BRIDGE_MARKS.filter(inFrame).length >= 2;
   const boatCentre = landing.boat.position.clone().add(new THREE.Vector3(0, .8, 0));
   // From the summit everything is far below, so the distance limits widen.
-  const reach = state.frameBank === 'peak' ? 140 : 50;
-  const boat = inFrame(boatCentre) && camera.position.distanceTo(boatCentre) < reach - 2;
-  const third = (state.frameBank === 'near' ? GOING : CAME).some(point => inFrame(point) && camera.position.distanceTo(point) < reach);
+  // Full run 11/16: from the opening lookout the far bank's houses (68 units off) and the sails on
+  // the river were plainly in the picture while the list said they were not. Any boat counts, and
+  // the far bank counts from as far as the lookout.
+  const reach = state.frameBank === 'peak' ? 140 : 95;
+  const boat = [boatCentre, ...farBoats.map(far => far.position.clone().add(new THREE.Vector3(0, 1.4, 0)))]
+    .some(point => inFrame(point) && camera.position.distanceTo(point) < reach - 2);
+  const third = (state.frameBank === 'near' ? GOING : CAME).some(point => inFrame(point, state.frameBank === 'near') && camera.position.distanceTo(point) < reach);
   return { bridge, boat, third, blocked: state.frameBank === 'bridge' ? false : lensBlocked() }; // rails are foreground on the bridge
 }
 const joinCN = list => list.length < 2 ? list.join('') : `${list.slice(0, -1).join('、')}和${list.at(-1)}`;
@@ -2964,7 +2971,12 @@ function setPainterOpacity(o, onTop = false) {
   PAINTER.model?.traverse(part => {
     if (!part.isMesh) return;
     // Over the scroll, nothing of the terrain may cut him off at the knees: drawn on top, whole.
-    if (part.material.depthTest === onTop) { part.material.depthTest = !onTop; part.material.needsUpdate = true; }
+    // Full run 11/16: with the depth test simply off, his own far side and trousers drew over the
+    // back of the robe in patches (this, not the skinning, was the "torn robe"). The depth buffer
+    // is cleared just before he is drawn instead: on top of everything, yet solid in himself.
+    part.material.depthTest = true;
+    part.material.depthWrite = true;
+    part.onBeforeRender = onTop ? renderer => renderer.clearDepth() : () => {};
     // In the transparent pass, after the scroll (renderOrder 6000), so he stays in front of it.
     if (!part.material.transparent) { part.material.transparent = true; part.material.needsUpdate = true; }
     part.renderOrder = 6001;
@@ -3093,6 +3105,7 @@ function backToWorld() {
 // Pushing against something for a while brings one quiet line about where the way is (Harry:
 // a delayed hint beats a permanent arrow). At most once every 14 seconds.
 const stall = { t: 0, last: -99 };
+const SUMMIT_STAIR = { x: -21.2, z: -87.8 }; // foot of the summit pavilion's stair (measured with floor rays)
 function noteStall(dt, moved, wanted) {
   stall.t = moved < wanted * .25 ? stall.t + dt : Math.max(0, stall.t - dt * 2);
   if (stall.t < 2.2 || state.walkTime - stall.last < 14) return;
@@ -3102,6 +3115,8 @@ function noteStall(dt, moved, wanted) {
   const byRiver = !state.onBridge && (Math.abs(p.z - RIVER.near) < 3 || Math.abs(p.z - RIVER.far) < 3);
   say(state.onBridge ? '栏杆挡着。顺着桥面往前走。'
     : byRiver ? '这里是江水，过不去。' + (Math.abs(p.x - BRIDGE.x) < 1.5 ? '对准桥头再走。' : `长桥在${(p.x < BRIDGE.x) === (p.z > BRIDGE.z) ? '右' : '左'}手边，从桥头上桥。`)
+    : state.floor != null ? '有墙或栏杆挡着，换个方向试试。'
+    : Math.hypot(p.x - SUMMIT_TERRACE.x, p.z - SUMMIT_TERRACE.z) < SUMMIT_TERRACE.r + 2 ? '亭子立在石台上。绕到有石阶的一侧，拾级上亭。'
     : p.z < -50 ? '这里坡太陡，上不去。沿着浅色的土路走，它一路通到山顶。'
     : '前面过不去，换个方向试试。', 4200);
 }
@@ -3141,6 +3156,13 @@ function tryMove(dx, dz) {
       const off = BRIDGE.x - nextX, pull = Math.abs(off) < 9 ? Math.sign(off) * Math.min(Math.abs(off), Math.hypot(dx, dz) * .9) : 0;
       steps = [[THREE.MathUtils.clamp(nextX + pull, -39, 39), p.z]];
     }
+  }
+  // The summit pavilion's stair is a step and a half wide (full run 11/16: half a pace off its
+  // line, the cheek wall stopped the traveller dead). Near its foot a blocked step is retried
+  // drifting toward the stair's centre line.
+  if (Math.abs(p.x - SUMMIT_STAIR.x) < 2.4 && Math.abs(p.z - SUMMIT_STAIR.z) < 2.6 && state.floor == null) {
+    const drift = Math.sign(SUMMIT_STAIR.z - p.z) * Math.min(Math.abs(SUMMIT_STAIR.z - p.z), Math.hypot(dx, dz));
+    steps.push([nextX, p.z + drift], [p.x, p.z + drift]);
   }
   // Among the houses: try the full step, then slide along whichever wall is in the way.
   for (const [x, z] of steps) {
@@ -3185,6 +3207,9 @@ function resetErrands() {
     PAINTER.model.position.copy(PAINTER.at);
     PAINTER.model.rotation.y = Math.atan2(PAINTER.facing.x, PAINTER.facing.z);
   }
+  // Full run 11/16: after the ending he stayed faded out, so a second journey found the pavilion empty.
+  setPainterOpacity(1);
+  if (PAINTER.rig) { PAINTER.rig.walk?.stop(); PAINTER.rig.standup?.stop(); PAINTER.rig.current = null; }
   playPainterClip('sit');
   rujuan.hidden = true;
   PAINTER.met = false;
@@ -3217,7 +3242,7 @@ function currentAction() {
     if (!item.taken && flat(p, item.group.position) < 1.8) return key;
   }
   if (!errand.inscription && halfwayPavilion && flat(p, PEAK_SPOTS.pavilion) < 3.2) return 'inscribe';
-  if (!PAINTER.returned && (pickups.dish?.taken || pickups.brush?.taken) && flat(p, PAINTER.at) < 3.4) return 'giveback';
+  if (!PAINTER.returned && (pickups.dish?.taken || pickups.brush?.taken) && flat(p, PAINTER.at) < 4.5) return 'giveback'; // reaches across the front rail from the terrace (full run 11/16: the path arrives there, the stair is round the side)
   return '';
 }
 const ACTION_LABELS = { take: '接绳', tie: '系上', cargo: '接货', deliver: '放下货', dish: '拾起', brush: '拾起', inscribe: '题壁', giveback: '还给他' };
@@ -3533,6 +3558,10 @@ function update(dt, elapsed) {
     // behind the traveller along the bridge and above the hat.
     const along = Math.sign(cos) || 1;
     const across = Math.sign(sin) || 1; // on the side stair: behind the traveller, along the stair
+    // Stepping off the deck onto the stair always turns the view down it (full run 11/16: the
+    // side was picked from a near-zero sine, so half the time W walked straight back to the deck).
+    if (onStair && !state.wasOnStair) state.camYaw = Math.PI / 2;
+    state.wasOnStair = onStair;
     if (onStair && !firstPerson) {
       const want = across > 0 ? Math.PI / 2 : -Math.PI / 2;
       state.camYaw += Math.atan2(Math.sin(want - state.camYaw), Math.cos(want - state.camYaw)) * Math.min(1, dt * 6);
