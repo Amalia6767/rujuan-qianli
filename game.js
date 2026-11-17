@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=141';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=142';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=141';
+} from './look.js?v=142';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=141`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=142`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=141`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=142`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -3626,14 +3626,16 @@ function update(dt, elapsed) {
     if (firstPerson) targetCamera.set(x, groundUnder(traveller.position) + 1.55, z);
     camera.position.lerp(targetCamera, Math.min(1, dt * (clearingRoof ? 7 : 4.2)));
     { // ink arrows (Xingyi 11/17): hall aisle → out of the eaves on the left; far bridge end → up the hill on the left
-      const farEnd = !onBridge && Math.abs(x - BRIDGE.x) < 6 && z < BRIDGE.z - BRIDGE.half + 1 && z > BRIDGE.z - BRIDGE.half - 7;
+      const endZ = BRIDGE.z - BRIDGE.half, endSpot = [BRIDGE.x - 3.2, endZ - 2.6]; // just off the end, to the traveller's left
+      if (Math.hypot(x - endSpot[0], z - endSpot[1]) < 1.3 || x < endSpot[0]) state.passedEndArrow = true; // walked through it
+      const farEnd = !state.passedEndArrow && Math.abs(x - BRIDGE.x) < 6 && z < endZ + .8 && z > endZ - 8;
       if (onStair) state.leftHall = true; // once out by the side stair, the aisle arrow would only send them back
       const aisle = !state.leftHall && underBridgeRoof && cos > .5 && Math.abs(z - SIDE_STAIR.z) < SIDE_STAIR.half * .8; // only while standing in the gap: A walks straight out
       const arrow = document.getElementById('ink-arrow');
       const on = state.mode === 'play' && (aisle || farEnd);
       // Anchored in the world (Xingyi 11/17): projected from a spot on the ground, not pinned to the screen.
       const spot = on && (aisle ? new THREE.Vector3(BRIDGE.x - 1.9, groundUnder(traveller.position) + .9, SIDE_STAIR.z)
-        : new THREE.Vector3(BRIDGE.x - 5, heightAt(BRIDGE.x - 5, BRIDGE.z - BRIDGE.half - 3) + .7, BRIDGE.z - BRIDGE.half - 3)).project(camera);
+        : new THREE.Vector3(endSpot[0], heightAt(endSpot[0], endSpot[1]) + .7, endSpot[1])).project(camera);
       const shown = on && spot.z < 1 && Math.abs(spot.x) < 1.1 && Math.abs(spot.y) < 1.1;
       arrow.classList.toggle('on', shown);
       arrow.style.visibility = shown ? '' : 'hidden';
