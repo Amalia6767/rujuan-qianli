@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=139';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=140';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=139';
+} from './look.js?v=140';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=139`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=140`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=139`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=140`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2663,6 +2663,7 @@ function openFraming() {
     return;
   }
   state.mode = 'framing';
+  document.getElementById('ink-arrow').style.visibility = 'hidden';
   state.frameBank = bank;
   // Open already facing the subject: the bridge, or the boat when standing on the bridge.
   const onBridgeNear = traveller.position.z < 5.15;
@@ -3626,15 +3627,22 @@ function update(dt, elapsed) {
     camera.position.lerp(targetCamera, Math.min(1, dt * (clearingRoof ? 7 : 4.2)));
     { // ink arrows (Xingyi 11/17): hall aisle → out of the eaves on the left; far bridge end → up the hill on the left
       const farEnd = !onBridge && Math.abs(x - BRIDGE.x) < 6 && z < BRIDGE.z - BRIDGE.half + 1 && z > BRIDGE.z - BRIDGE.half - 7;
-      const aisle = underBridgeRoof && cos > .5 && Math.abs(z - SIDE_STAIR.z) < 2.2; // only beside the side exit
+      if (onStair) state.leftHall = true; // once out by the side stair, the aisle arrow would only send them back
+      const aisle = !state.leftHall && underBridgeRoof && cos > .5 && Math.abs(z - SIDE_STAIR.z) < 2.2; // only beside the side exit
       const arrow = document.getElementById('ink-arrow');
       const on = state.mode === 'play' && (aisle || farEnd);
-      arrow.classList.toggle('on', on);
-      if (on) {
+      // Anchored in the world (Xingyi 11/17): projected from a spot on the ground, not pinned to the screen.
+      const spot = on && (aisle ? new THREE.Vector3(BRIDGE.x - 1.9, groundUnder(traveller.position) + .9, SIDE_STAIR.z)
+        : new THREE.Vector3(BRIDGE.x - 5, heightAt(BRIDGE.x - 5, BRIDGE.z - BRIDGE.half - 3) + .7, BRIDGE.z - BRIDGE.half - 3)).project(camera);
+      const shown = on && spot.z < 1 && Math.abs(spot.x) < 1.1 && Math.abs(spot.y) < 1.1;
+      arrow.classList.toggle('on', shown);
+      arrow.style.visibility = shown ? '' : 'hidden';
+      if (shown) {
+        arrow.style.left = `${((spot.x + 1) * 50).toFixed(1)}%`;
+        arrow.style.top = `${((1 - spot.y) * 50).toFixed(1)}%`;
         const dx = -1, dz = farEnd ? -.55 : 0; // world west (left when facing down the bridge), a little up the slope
         const ang = Math.atan2(-(dx * -sin + dz * -cos), dx * cos - dz * sin) * 180 / Math.PI;
         arrow.style.transform = `rotate(${ang.toFixed(1)}deg)`;
-        arrow.style.left = farEnd ? '26%' : '50%'; // far end: over the slope on the left, clear of the traveller
       }
     }
     const followTarget = firstPerson
