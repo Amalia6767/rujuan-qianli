@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=135';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=136';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=135';
+} from './look.js?v=136';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -93,6 +93,7 @@ const saveScroll = document.getElementById('save-scroll');
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
+  { const r0 = renderer.render.bind(renderer); renderer.render = (sc, c) => { if (canvas.width && canvas.height && canvas.clientWidth && canvas.clientHeight) r0(sc, c); }; }
 } catch (error) {
   errorBox.hidden = false;
   throw error;
@@ -1315,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=135`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=136`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=135`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=136`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
