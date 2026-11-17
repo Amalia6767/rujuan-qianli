@@ -331,3 +331,5 @@ h1 span { font-size: .66em; letter-spacing: 0; }
 
 .ink-arrow{position:fixed;left:50%;top:60%;width:150px;margin:-56px 0 0 -75px;mix-blend-mode:screen;pointer-events:none;opacity:0;transition:opacity .6s;z-index:5}
 .ink-arrow.on{opacity:.85}
+.frame-checklist li.optional{border-style:dashed}
+.frame-checklist li[hidden]{display:none}

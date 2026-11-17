@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=142';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=143';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=142';
+} from './look.js?v=143';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=142`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=143`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=142`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=143`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2636,19 +2636,23 @@ function itemNames(items) {
 
 function refreshFrameFeedback() {
   const items = frameItems();
-  frameChecklist.querySelector('[data-item="third"]').textContent = thirdLabel();
-  frameChecklist.querySelector('.frame-rule').textContent = state.frameBank === 'bridge' ? '凭栏所见皆可取景' : '有桥或船即可取景';
+  const third = frameChecklist.querySelector('[data-item="third"]');
+  third.textContent = `可选 · ${thirdLabel()}`;
+  third.classList.add('optional'); // Harry: say plainly which subjects are suggestions
+  // On the bridge anything seen over the rail is a view: no subject chips to contradict that.
+  for (const key of ['bridge', 'boat', 'third']) frameChecklist.querySelector(`[data-item="${key}"]`).hidden = state.frameBank === 'bridge';
+  frameChecklist.querySelector('.frame-rule').textContent = state.frameBank === 'bridge' ? '凭栏所见皆可取景' : '桥、船有其一即可取景';
   for (const key of ['bridge', 'boat', 'third']) frameChecklist.querySelector(`[data-item="${key}"]`).classList.toggle('is-in', items[key]);
   const names = itemNames(items);
   // One contract, said the same way everywhere: the bridge or the boat makes a view; the rest is a suggestion.
   const missing = [!items.bridge && '桥', !items.boat && '船', !items.third && thirdLabel()].filter(Boolean);
   const more = missing.length ? `再转一转，还可以把${joinCN(missing)}也收进来。` : '三样都在画中了。';
   const message = items.blocked ? '柱子或栏杆挡住了视线。按 Esc 退出，稍微移动后再试。'
-    : state.frameBank === 'bridge' ? `${names.length ? `框中有${joinCN(names)}。` : ''}站在桥心望出去，按空格取景。`
+    : state.frameBank === 'bridge' ? '凭栏所见皆可入画，按空格取景。'
     : !(items.bridge || items.boat) ? (state.frameBank === 'peak'
       ? '山坡挡住了桥和船。拖动鼠标转一转；还看不到，就按 Esc 退出，往亭前崖边走几步。'
       : '桥或船入框，便可取景。拖动鼠标，或按 A / D 转动视角。')
-    : `框中有${joinCN(names)}，可以取景了，按空格。${more}`;
+    : `框中有${joinCN(names)}，可以取景了，按空格。${missing.length ? `（可选：再转一转，把${joinCN(missing)}也收进来。）` : '三样都在画中了。'}`;
   if (message !== state.frameSubject) {
     state.frameSubject = message;
     frameStatus.textContent = message;
