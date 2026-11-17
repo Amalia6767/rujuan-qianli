@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=140';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=141';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=140';
+} from './look.js?v=141';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=140`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=141`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=140`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=141`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -3628,7 +3628,7 @@ function update(dt, elapsed) {
     { // ink arrows (Xingyi 11/17): hall aisle → out of the eaves on the left; far bridge end → up the hill on the left
       const farEnd = !onBridge && Math.abs(x - BRIDGE.x) < 6 && z < BRIDGE.z - BRIDGE.half + 1 && z > BRIDGE.z - BRIDGE.half - 7;
       if (onStair) state.leftHall = true; // once out by the side stair, the aisle arrow would only send them back
-      const aisle = !state.leftHall && underBridgeRoof && cos > .5 && Math.abs(z - SIDE_STAIR.z) < 2.2; // only beside the side exit
+      const aisle = !state.leftHall && underBridgeRoof && cos > .5 && Math.abs(z - SIDE_STAIR.z) < SIDE_STAIR.half * .8; // only while standing in the gap: A walks straight out
       const arrow = document.getElementById('ink-arrow');
       const on = state.mode === 'play' && (aisle || farEnd);
       // Anchored in the world (Xingyi 11/17): projected from a spot on the ground, not pinned to the screen.
