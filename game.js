@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=136';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=137';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=136';
+} from './look.js?v=137';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=136`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=137`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=136`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=137`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2670,6 +2670,7 @@ function openFraming() {
   const dx = aim.x - traveller.position.x, dz = aim.z - traveller.position.z;
   state.frameYaw = Math.atan2(dx, -dz);
   state.framePitch = THREE.MathUtils.clamp(Math.atan2(aim.y - groundUnder(traveller.position) - 1.7, Math.hypot(dx, dz)), -.3, .2);
+  if (bank === 'bridge') { state.frameYaw = traveller.position.x < BRIDGE.x ? -Math.PI / 2 : Math.PI / 2; state.framePitch = -.04; } // down the river, as from the rail
   if (bank === 'peak') { // aimed from the brow (see updateFrameCamera): bridge left of centre, the village and river beside it
     const ex = SUMMIT_TERRACE.x + SUMMIT_FACING.x * (SUMMIT_TERRACE.r + .6), ez = SUMMIT_TERRACE.z + SUMMIT_FACING.z * (SUMMIT_TERRACE.r + .6);
     state.frameYaw = Math.atan2(14 - ex, -(BRIDGE.z - ez));
@@ -3572,6 +3573,7 @@ function update(dt, elapsed) {
     const underBridgeRoof = state.onBridge && !onStair && Math.abs(z - BRIDGE.z) < 6.3; // the hall, stretched with the bridge
     const indoors = state.floor != null || underBridgeRoof;
     const floorY = state.floor ?? groundUnder(traveller.position);
+    const endZone = Math.abs(x - BRIDGE.x) < 5 && Math.abs(Math.abs(z - BRIDGE.z) - BRIDGE.half) < 6;
     let reach = underBridgeRoof ? 3.6 : onStair ? 3.4 : indoors ? 4.2 : 10.9;
     if (state.floor != null) {
       const back = houseHits(stepProbe.set(x, floorY + 1.75, z), stepDirection.set(sin, 0, cos), reach)[0];
@@ -3597,20 +3599,22 @@ function update(dt, elapsed) {
     // on the traveller's side of the pavilion until the traveller is well clear.
     if (state.onBridge && !underBridgeRoof && Math.sign(z - BRIDGE.z) === -along) reach = Math.min(reach, Math.max(3.2, Math.abs(z - BRIDGE.z) - 7.3));
     // Under the hall: off the right shoulder (columns stand ~2.5 out each side), head clear of the roof line.
+    if (!underBridgeRoof && !onStair && state.floor == null && (endZone || state.onBridge)) reach = Math.min(reach, 4.6);
     const cx = underBridgeRoof ? BRIDGE.x - along * .85 : onStair ? x + across * reach : x + sin * reach;
     const cz = underBridgeRoof ? z + along * reach : onStair ? SIDE_STAIR.z + .45 : z + cos * reach;
     const onBridge = state.onBridge;
+    const lowCam = !underBridgeRoof && !onStair && !indoors && (endZone || (onBridge && Math.abs(cz - BRIDGE.z) < 8));
     // A camera hovering over the bridge (player just off it) lifts above the pavilion
     // roof; otherwise the roof can fill the entire view.
-    const clearingRoof = !onBridge && Math.abs(cx - 8) < 4.8 && Math.abs(cz - BRIDGE.z) < 7.5;
+    const clearingRoof = !lowCam && !onBridge && Math.abs(cx - 8) < 4.8 && Math.abs(cz - BRIDGE.z) < 7.5;
     // Backed against a wall the camera rises to look over the traveller's hat.
-    const cameraHeight = underBridgeRoof ? 1.95 : onStair ? 2.1 : indoors ? (reach < 1.5 ? 2.15 : 1.75) : clearingRoof ? 9.2 : (onBridge ? 4.5 : 5.9);
+    const cameraHeight = underBridgeRoof ? 1.95 : onStair ? 2.1 : indoors ? (reach < 1.5 ? 2.15 : 1.75) : lowCam ? 2.3 : clearingRoof ? 9.2 : (onBridge ? 4.5 : 5.9);
     // Ride over whichever is higher, the ground under the player or under the camera.
     const ground = indoors ? floorY : Math.max(groundUnder(traveller.position), heightAt(cx, cz));
     const targetCamera = new THREE.Vector3(cx, ground + cameraHeight, cz);
     // On the peak a shoulder of hillside can sit between camera and traveller: lift the
     // camera until the sightline from the traveller's head clears the slope.
-    if (!indoors && !onBridge) {
+    if (!indoors && !onBridge && !lowCam) {
       const head = groundUnder(traveller.position) + 1.25;
       for (let i = 1; i <= 6; i++) {
         const t = i / 6;
@@ -3620,6 +3624,18 @@ function update(dt, elapsed) {
     }
     if (firstPerson) targetCamera.set(x, groundUnder(traveller.position) + 1.55, z);
     camera.position.lerp(targetCamera, Math.min(1, dt * (clearingRoof ? 7 : 4.2)));
+    { // ink arrows (Xingyi 11/17): hall aisle → out of the eaves on the left; far bridge end → up the hill on the left
+      const farEnd = !onBridge && Math.abs(x - BRIDGE.x) < 6 && z < BRIDGE.z - BRIDGE.half + 1 && z > BRIDGE.z - BRIDGE.half - 7;
+      const aisle = underBridgeRoof && cos > .5 && z < BRIDGE.z + 2;
+      const arrow = document.getElementById('ink-arrow');
+      const on = state.mode === 'play' && (aisle || farEnd);
+      arrow.classList.toggle('on', on);
+      if (on) {
+        const dx = -1, dz = farEnd ? -.55 : 0; // world west (left when facing down the bridge), a little up the slope
+        const ang = Math.atan2(-(dx * -sin + dz * -cos), dx * cos - dz * sin) * 180 / Math.PI;
+        arrow.style.transform = `rotate(${ang.toFixed(1)}deg)`;
+      }
+    }
     const followTarget = firstPerson
       ? new THREE.Vector3(x - sin * 10, groundUnder(traveller.position) + 1.2, z - cos * 10) // out over the water
       : underBridgeRoof
