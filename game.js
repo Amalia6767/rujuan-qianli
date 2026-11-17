@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=164';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=166';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=164';
+} from './look.js?v=166';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -700,7 +700,7 @@ function makePickup(key, x, z) {
   const group = new THREE.Group();
   group.position.set(x, heightAt(x, z) + .04, z);
   if (key === 'sketch') { // Xingyi's sheet, blown off the halfway pavilion, caught at the path's edge
-    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=164'); // (the shared loader is declared later)
+    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=166'); // (the shared loader is declared later)
     map.colorSpace = THREE.SRGBColorSpace;
     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.95, .68), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .95 }));
     sheet.rotation.set(-Math.PI / 2 + .35, 0, .5); // tipped up against the slope, as if the wind left it there
@@ -1267,7 +1267,7 @@ applyRecipe(recipe.choice);
   mesh.geometry.setAttribute('aSprite', new THREE.InstancedBufferAttribute(new Float32Array(sprites), 1));
   mesh.material.onBeforeCompile = sh => {
     sh.uniforms.uFocus = U.uFocus;
-    sh.vertexShader = sh.vertexShader.replace('void main() {', 'attribute float aSprite; uniform vec3 uFocus; varying float vGone;\nvoid main() {\n  vec4 bc = instanceMatrix * vec4(0., 0., 0., 1.);\n  vGone = aSprite * step(length(bc.xz - uFocus.xz), 10.5);');
+    sh.vertexShader = sh.vertexShader.replace('void main() {', 'attribute float aSprite; uniform vec3 uFocus; varying float vGone;\nvoid main() {\n  vec4 bc = instanceMatrix * vec4(0., 0., 0., 1.);\n  vGone = 0.; // (near-fade retired, Xingyi 11/17)');
     sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'varying float vGone;\nvoid main() {\n  if (vGone > .5) discard;');
   };
   const m = new THREE.Matrix4();
@@ -1356,11 +1356,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=164`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=166`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=164`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=166`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -3457,12 +3457,15 @@ function interact() {
     pickups[action].group.visible = false;
     cuePickup();
     note(PICKUP_LINES[action][1]);
-    if (action !== 'sketch') think(PICKUP_LINES[action][0]);
+    if (action !== 'sketch') say(PICKUP_LINES[action][0], 4200);
     if (action === 'sketch') { // held up to the eye for a moment (Xingyi 11/17)
       const view = document.getElementById('sketch-view');
       view.hidden = false;
-      toast.classList.remove('is-visible'); // nothing sits over the sheet; queued lines wait for it to close
-      think(PICKUP_LINES.sketch[0], 5200); // the thought stays with the sheet, laid out beside it
+      // The line stays on screen with the sheet (laid out apart: the sheet rides high, the line sits below it).
+      toast.textContent = PICKUP_LINES.sketch[0];
+      toast.classList.add('is-visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.classList.remove('is-visible'); setTimeout(pumpSay, 300); }, 5200);
       requestAnimationFrame(() => view.classList.add('is-open'));
       clearTimeout(view.closeTimer);
       const close = () => { if (view.hidden) return; view.classList.remove('is-open'); setTimeout(() => { view.hidden = true; pumpSay(); }, 500); }; // the line follows, so it never sits on the sheet
@@ -3616,7 +3619,6 @@ function update(dt, elapsed) {
   updateWaymarks(elapsed);
   updateBirds(elapsed);
   updateBrowMark(elapsed);
-  updateThought();
   for (const boat of farBoats) { // a slow bob on the current
     const t = elapsed + boat.userData.phase;
     boat.position.y = -.38 + Math.sin(t * .8) * .04;
@@ -3694,11 +3696,11 @@ function update(dt, elapsed) {
     }
     if (!state.sawSketch && pickups.sketch && !pickups.sketch.taken && flat(traveller.position, pickups.sketch.group.position) < 4.5) {
       state.sawSketch = true;
-      think(PICKUP_LINES.sketch[0]); // noticed on the way up, before it is picked up
+      say(PICKUP_LINES.sketch[0], 5200); // noticed on the way up, before it is picked up
     }
     if (!state.saw_pavilion_desk && flat(traveller.position, PEAK_SPOTS.pavilion) < 2.3) {
       state.saw_pavilion_desk = true;
-      think('亭中铺着一块画毡，镇纸还压在上面，纸却不见了。碟里的颜料还没干，笔洗里的水泛着青绿。画画的人刚走，看样子是往山上去了。', 8000);
+      say('亭中铺着一块画毡，镇纸还压在上面，纸却不见了。碟里的颜料还没干，笔洗里的水泛着青绿。画画的人刚走，看样子是往山上去了。', 8000);
     }
     if (state.pendingEndAt && performance.now() > state.pendingEndAt) win();
 

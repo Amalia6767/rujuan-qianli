@@ -619,8 +619,6 @@ varying vec2 vUv; varying float vFade; varying vec3 vW; varying float vNear;
 void main() {
   vec4 t = texture2D(uAtlas, vUv);
   if (t.a < .42) discard;
-  // Xingyi 11/17: flat trees read as cut-outs up close; they stay in the distance and step out near the traveller.
-  if (vNear < 9. + 3. * fract(sin(dot(floor(vW.xz * 4.), vec2(12.9, 78.2))) * 43758.5)) discard;
   // Screen-door thinning for trees in the way.
   if (vFade < 1. && uGhost < .5) discard; // a tree in the way steps aside entirely (a dither read as grey noise)
   float dist = length(cameraPosition - vW);

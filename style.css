@@ -352,4 +352,5 @@ h1 span { font-size: .66em; letter-spacing: 0; }
 .thought p{margin:0;font-family:'Noto Serif SC',serif;font-size:13.5px;line-height:1.55;color:#22302c;letter-spacing:.02em}
 @keyframes thought-in{from{opacity:0;transform:translate(-50%,-92%)}to{opacity:1;transform:translate(-50%,-100%)}}
 .thought.with-sheet{left:50% !important;top:auto !important;bottom:5vh;transform:translate(-50%,0);z-index:10;animation:none}
-.sketch-view.is-open img{transform:translateY(-9vh) scale(.88) rotate(-1.5deg)}
+.sketch-view.is-open img{transform:translateY(-13vh) scale(.78) rotate(-1.5deg)}
+body:has(.sketch-view:not([hidden])) .toast{z-index:10}
