@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=137';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=138';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=137';
+} from './look.js?v=138';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=137`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=138`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=137`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=138`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -3626,7 +3626,7 @@ function update(dt, elapsed) {
     camera.position.lerp(targetCamera, Math.min(1, dt * (clearingRoof ? 7 : 4.2)));
     { // ink arrows (Xingyi 11/17): hall aisle → out of the eaves on the left; far bridge end → up the hill on the left
       const farEnd = !onBridge && Math.abs(x - BRIDGE.x) < 6 && z < BRIDGE.z - BRIDGE.half + 1 && z > BRIDGE.z - BRIDGE.half - 7;
-      const aisle = underBridgeRoof && cos > .5 && z < BRIDGE.z + 2;
+      const aisle = underBridgeRoof && cos > .5 && Math.abs(z - SIDE_STAIR.z) < 2.2; // only beside the side exit
       const arrow = document.getElementById('ink-arrow');
       const on = state.mode === 'play' && (aisle || farEnd);
       arrow.classList.toggle('on', on);
