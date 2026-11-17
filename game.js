@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=166';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=167';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=166';
+} from './look.js?v=167';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -700,7 +700,7 @@ function makePickup(key, x, z) {
   const group = new THREE.Group();
   group.position.set(x, heightAt(x, z) + .04, z);
   if (key === 'sketch') { // Xingyi's sheet, blown off the halfway pavilion, caught at the path's edge
-    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=166'); // (the shared loader is declared later)
+    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=167'); // (the shared loader is declared later)
     map.colorSpace = THREE.SRGBColorSpace;
     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.95, .68), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .95 }));
     sheet.rotation.set(-Math.PI / 2 + .35, 0, .5); // tipped up against the slope, as if the wind left it there
@@ -1356,11 +1356,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=166`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=167`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=166`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=167`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2450,10 +2450,12 @@ function show(screen) {
 // current one to finish; while framing they wait too, so nothing sits on top of the frame's own status.
 const sayQueue = [];
 let sayBusyUntil = 0;
-function say(message, duration = 3400) {
+// still: an optional check run when the line's turn comes; a line that no longer fits the scene is dropped
+// (Xingyi 11/17: a "deliver the goods" line must not play after the goods are delivered).
+function say(message, duration = 3400, still = null) {
   if (toast.classList.contains('is-visible') && toast.textContent === message) return;
   if (sayQueue.some(item => item[0] === message)) return;
-  sayQueue.push([message, duration]);
+  sayQueue.push([message, duration, still]);
   pumpSay();
 }
 // Inner thoughts (Xingyi 11/17): what the traveller notices, in a cloud by his head, apart from the
@@ -2475,6 +2477,8 @@ function updateThought() {
 }
 function pumpSay() {
   if (!sayQueue.length || state.mode === 'framing' || !document.getElementById('sketch-view').hidden || performance.now() < sayBusyUntil) return;
+  while (sayQueue.length && sayQueue[0][2] && !sayQueue[0][2]()) sayQueue.shift();
+  if (!sayQueue.length) return;
   const [message, duration] = sayQueue.shift();
   toast.textContent = message;
   toast.classList.add('is-visible');
@@ -3683,7 +3687,7 @@ function update(dt, elapsed) {
     if (!state.bridgePavilionNotified && Math.abs(x - 8) < 1.5 && Math.abs(z - BRIDGE.z) < 1.6) {
       state.bridgePavilionNotified = true;
       note('到桥心亭');
-      say('长桥中央，一座小亭临水而立。亭下流水，两岸青山，凭栏便可望见。', 5200);
+      say('长桥中央，一座小亭临水而立。亭下流水，两岸青山，凭栏便可望见。', 5200, () => state.onBridge);
     }
     if (!state.crossed && z < BRIDGE.z - BRIDGE.half - .2) {
       state.crossed = true;
@@ -3691,16 +3695,16 @@ function update(dt, elapsed) {
       updateGoal();
       // Xingyi 11/17: carrying the load, the delivery comes first, then the view; otherwise the view straight away.
       const carrying = errand.phase === 'carrying';
-      if (carrying) say('肩上的货，先送到右手边山庄长屋的门前。', 5200);
-      setTimeout(() => say('回望来路，长桥已在身后。转过身，按 V 把长桥收入画中。', 6000), carrying ? 5400 : 0);
+      if (carrying) say('肩上的货，先送到右手边山庄长屋的门前。', 5200, () => errand.phase === 'carrying');
+      setTimeout(() => say('回望来路，长桥已在身后。转过身，按 V 把长桥收入画中。', 6000, () => !shots.far && traveller.position.z > -46), carrying ? 5400 : 0);
     }
     if (!state.sawSketch && pickups.sketch && !pickups.sketch.taken && flat(traveller.position, pickups.sketch.group.position) < 4.5) {
       state.sawSketch = true;
-      say(PICKUP_LINES.sketch[0], 5200); // noticed on the way up, before it is picked up
+      say(PICKUP_LINES.sketch[0], 5200, () => flat(traveller.position, pickups.sketch.group.position) < 9); // noticed on the way up, before it is picked up
     }
     if (!state.saw_pavilion_desk && flat(traveller.position, PEAK_SPOTS.pavilion) < 2.3) {
       state.saw_pavilion_desk = true;
-      say('亭中铺着一块画毡，镇纸还压在上面，纸却不见了。碟里的颜料还没干，笔洗里的水泛着青绿。画画的人刚走，看样子是往山上去了。', 8000);
+      say('亭中铺着一块画毡，镇纸还压在上面，纸却不见了。碟里的颜料还没干，笔洗里的水泛着青绿。画画的人刚走，看样子是往山上去了。', 8000, () => flat(traveller.position, PEAK_SPOTS.pavilion) < 8);
     }
     if (state.pendingEndAt && performance.now() > state.pendingEndAt) win();
 
@@ -3803,7 +3807,7 @@ function update(dt, elapsed) {
       state.summitRevealed = true;
       // state.revealT = 0; // Xingyi 11/17: the orbiting reveal is off for now (the line still plays)
       // playtest: the summit chord over the reveal was too sudden; the music carries it instead.
-      say('到了山顶，眼前豁然开阔。长桥、村舍与来时的山路，都在群山之间。', 5600);
+      say('到了山顶，眼前豁然开阔。长桥、村舍与来时的山路，都在群山之间。', 5600, () => currentBank() === 'peak');
     }
     if (state.revealT != null && state.revealT < 7.5) {
       state.revealT += dt;
@@ -4001,6 +4005,7 @@ if (new URLSearchParams(location.search).has('qa')) {
     for (let t = 0; t < seconds; t += .05) { qaElapsed += .05; frame(.05, qaElapsed); }
   };
   window.__qa = { scene, errand, pickups, traveller, houses, houseHits, state, boatState, shots, playLog, heightAt, camera, step, applyRecipe, recipe, landing };
+  if (new URLSearchParams(location.search).has('autoplay')) import('./autoplay.js'); // local recording only, not published
 }
 
 resize();
