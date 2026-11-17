@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=144';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=145';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=144';
+} from './look.js?v=145';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=144`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=145`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=144`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=145`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2307,7 +2307,8 @@ const HINTS = {
   descend: [['W'], '下山去渡口，舟人在水边等你'],
   far: [['V'], '取景 · 回头，把长桥和来路收进画框'],
   climb: [['W'], '沿山路往上走，到山顶再取一景'],
-  peak: [['V'], '取景 · 从山顶看你走过的路'],
+  peak: [['V'], '出亭到崖边的印记处，按 V 取景'],
+  meet: [['E'], '亭中有人作画，先把拾来的笔和颜料还给他'],
   bridge: [['V'], '出了亭檐，或从亭侧台阶下到水边平台，便可凭栏取景'],
   bridgeView: [['V'], '取景 · 凭栏望江'],
   cargo: [['E'], '接过这担货'],
@@ -2326,7 +2327,7 @@ function pickHint() {
   if (!state.crossed && !shots.near && currentBank() === 'near') return 'near';
   if (!state.crossed && shots.near && !boatState.tiedBy && Math.hypot(traveller.position.x - BOAT_DOCK.x, traveller.position.z - BOAT_DOCK.z) > 7) return 'descend';
   if (!coachState.walked) return 'walk';
-  if (currentBank() === 'peak' && !shots.peak) return 'peak';
+  if (currentBank() === 'peak' && !shots.peak) return painterDone() ? 'peak' : 'meet';
   if (state.onBridge && Math.abs(traveller.position.z - BRIDGE.z) < 12 && !shots.bridge) return currentBank() === 'bridge' ? 'bridgeView' : 'bridge';
   if (state.crossed && !shots.far && errand.phase !== 'carrying' && traveller.position.z < RIVER.far - 2) return 'far';
   if (shots.far && !shots.peak && traveller.position.z > -52) return 'climb';
@@ -2659,9 +2660,23 @@ function refreshFrameFeedback() {
   }
 }
 
+// Summit order (Xingyi 11/17): give the painter his things, then step out to the brow and frame.
+const painterDone = () => PAINTER.returned || !(pickups.dish?.taken || pickups.brush?.taken);
+const browSpot = new THREE.Vector3(SUMMIT_TERRACE.x + SUMMIT_FACING.x * (SUMMIT_TERRACE.r + .6), 0, SUMMIT_TERRACE.z + SUMMIT_FACING.z * (SUMMIT_TERRACE.r + .6));
+const browMark = new THREE.Mesh(new THREE.RingGeometry(.55, .78, 40), new THREE.MeshBasicMaterial({ color: 0x2c3a33, transparent: true, opacity: .3, depthWrite: false }));
+browMark.rotation.x = -Math.PI / 2;
+browMark.visible = false;
+scene.add(browMark);
+function updateBrowMark(elapsed) {
+  browMark.visible = state.mode === 'play' && painterDone() && !shots.peak && currentBank() === 'peak';
+  if (!browMark.visible) return;
+  browMark.position.set(browSpot.x, heightAt(browSpot.x, browSpot.z) + .06, browSpot.z);
+  browMark.material.opacity = .22 + .1 * Math.sin(elapsed * 1.6); // a faint ink ring, breathing
+}
 function openFraming() {
   if (state.mode !== 'play') return;
   const bank = currentBank();
+  if (bank === 'peak' && !painterDone()) { say('亭中有人正在作画。先把拾来的笔和颜料还给他。', 3600); return; }
   if (!bank) {
     say(state.onBridge ? '出了亭檐，或从亭侧台阶下到水边平台，就能望见两岸。' : '到桥心或岸上，便可以取景。', 3200);
     return;
@@ -3266,7 +3281,7 @@ function currentAction() {
   if (landingNow) return landingNow;
   const p = traveller.position;
   if (errand.phase === 'offered' && flat(p, PILE_CENTRE) < 3) return 'cargo';
-  if (errand.phase === 'carrying' && flat(p, HALL_DOOR) < 2.6) return 'deliver';
+  if (errand.phase === 'carrying' && flat(p, HALL_DOOR) < 6) return 'deliver'; // Xingyi 11/17: shown as soon as the long house is near
   for (const [key, item] of Object.entries(pickups)) {
     if (!item.taken && flat(p, item.group.position) < 1.8) return key;
   }
@@ -3490,6 +3505,7 @@ function updateLanding(dt, elapsed) {
 function update(dt, elapsed) {
   updateWaymarks(elapsed);
   updateBirds(elapsed);
+  updateBrowMark(elapsed);
   for (const boat of farBoats) { // a slow bob on the current
     const t = elapsed + boat.userData.phase;
     boat.position.y = -.38 + Math.sin(t * .8) * .04;
