@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=150';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=151';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=150';
+} from './look.js?v=151';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -1339,11 +1339,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=150`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=151`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=150`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=151`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2414,11 +2414,28 @@ function show(screen) {
   frameUI.hidden = state.mode !== 'framing';
 }
 
+// Subtitles one at a time (Xingyi 11/17: two lines stacked on each other). A new line waits for the
+// current one to finish; while framing they wait too, so nothing sits on top of the frame's own status.
+const sayQueue = [];
+let sayBusyUntil = 0;
 function say(message, duration = 3400) {
+  if (toast.classList.contains('is-visible') && toast.textContent === message) return;
+  if (sayQueue.some(item => item[0] === message)) return;
+  sayQueue.push([message, duration]);
+  pumpSay();
+}
+function pumpSay() {
+  if (!sayQueue.length || state.mode === 'framing' || performance.now() < sayBusyUntil) return;
+  const [message, duration] = sayQueue.shift();
   toast.textContent = message;
   toast.classList.add('is-visible');
+  sayBusyUntil = performance.now() + Math.min(duration, 4200);
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove('is-visible'), duration);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('is-visible');
+    setTimeout(pumpSay, 300);
+  }, duration);
+  setTimeout(pumpSay, Math.min(duration, 4200) + 20); // a long line yields to the next after ~4 s
 }
 
 // ---------- 开卷三问 ----------
@@ -2707,6 +2724,8 @@ function openFraming() {
     return;
   }
   state.mode = 'framing';
+  toast.classList.remove('is-visible'); // the frame's status line speaks while framing
+  sayBusyUntil = 0;
   document.getElementById('ink-arrow').style.visibility = 'hidden';
   state.frameBank = bank;
   // Open already facing the subject: the bridge, or the boat when standing on the bridge.
@@ -2740,6 +2759,7 @@ function openFraming() {
 function closeFraming() {
   if (state.mode !== 'framing') return;
   state.mode = 'play';
+  setTimeout(pumpSay, 400);
   state.frameBank = null;
   frameDrag = null;
   traveller.visible = true;
