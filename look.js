@@ -597,8 +597,9 @@ export function cloudSea({ cx = 0, cz = 0, y, inner, outer, opacity = .85 }) {
 const TREE_VERT = /* glsl */ `
 attribute vec3 aCenter; attribute vec2 aCorner; attribute vec2 aSize;
 uniform vec3 uFocus;
-varying vec2 vUv; varying float vFade; varying vec3 vW;
+varying vec2 vUv; varying float vFade; varying vec3 vW; varying float vNear;
 void main() {
+  vNear = length((aCenter - uFocus).xz); // how far this flat tree stands from the traveller
   vec3 toCam = cameraPosition - aCenter; toCam.y = 0.;
   vec3 right = normalize(vec3(toCam.z, 0., -toCam.x) + vec3(1e-4, 0., 0.));
   vec3 p = aCenter + right * aCorner.x * aSize.x + vec3(0., aCorner.y * aSize.y - .15, 0.);
@@ -614,10 +615,12 @@ void main() {
 const TREE_FRAG = /* glsl */ `
 ${COMMON}
 uniform sampler2D uAtlas; uniform vec3 uTreeTint, uMid, uTop; uniform float uGhost;
-varying vec2 vUv; varying float vFade; varying vec3 vW;
+varying vec2 vUv; varying float vFade; varying vec3 vW; varying float vNear;
 void main() {
   vec4 t = texture2D(uAtlas, vUv);
   if (t.a < .42) discard;
+  // Xingyi 11/17: flat trees read as cut-outs up close; they stay in the distance and step out near the traveller.
+  if (vNear < 9. + 3. * fract(sin(dot(floor(vW.xz * 4.), vec2(12.9, 78.2))) * 43758.5)) discard;
   // Screen-door thinning for trees in the way.
   if (vFade < 1. && uGhost < .5) discard; // a tree in the way steps aside entirely (a dither read as grey noise)
   float dist = length(cameraPosition - vW);

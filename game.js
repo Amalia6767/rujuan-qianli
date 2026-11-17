@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=160';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=162';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=160';
+} from './look.js?v=162';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -559,7 +559,7 @@ function sweptRoof(parent, halfWidth, halfDepth, eaveY, rise) {
 }
 
 const pathMat = pathMaterial();
-function paintedPath(controlPoints, width) {
+function paintedPath(controlPoints, width, lift = .08) {
   const curve = new THREE.CatmullRomCurve3(controlPoints.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
   const rows = [-1.28, -.98, -.68, 0, .68, .98, 1.28];
   const positions = [], sides = [], indices = [];
@@ -573,7 +573,7 @@ function paintedPath(controlPoints, width) {
     for (let row = 0; row < rows.length; row++) {
       const offset = rows[row] * width * .5 * bend;
       const px = point.x + dx * offset, pz = point.z + dz * offset;
-      positions.push(px, heightAt(px, pz) + .08, pz);
+      positions.push(px, heightAt(px, pz) + lift, pz);
       sides.push(rows[row] / 1.28);
       if (i && row) {
         const a = (i - 1) * rows.length + row - 1;
@@ -700,7 +700,7 @@ function makePickup(key, x, z) {
   const group = new THREE.Group();
   group.position.set(x, heightAt(x, z) + .04, z);
   if (key === 'sketch') { // Xingyi's sheet, blown off the halfway pavilion, caught at the path's edge
-    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=160'); // (the shared loader is declared later)
+    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=162'); // (the shared loader is declared later)
     map.colorSpace = THREE.SRGBColorSpace;
     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.95, .68), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .95 }));
     sheet.rotation.set(-Math.PI / 2 + .35, 0, .5); // tipped up against the slope, as if the wind left it there
@@ -922,7 +922,7 @@ function createEnvironment() {
   paintedPath(LANES[3], 2.4);
   paintedPath(LANES[4], 2.4);
   paintedPath([...PEAK_PATH.map(([x, z]) => [x, z]), [-15.6, -82]], 2.6); // drawn on to the summit view mark (Xingyi 11/17); the walking line is unchanged
-  paintedPath([[-24.5, -84.5], [-24.7, -86.4], [-23.4, -87.8]], 2.2); // the fork up to the pavilion stair (Xingyi 11/17)
+  paintedPath([[-21.6, -84.4], [-23.1, -85.7], [-23.1, -87.4], [-22.1, -87.8]], 2, .22); // ends at the stair foot (stair rises east from x ≈ -21.7); lifted so the rim doesn't cut it // the fork up to the pavilion stair (Xingyi 11/17)
   bankBrushwork();
   peakFeatures();
 
@@ -1347,11 +1347,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=160`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=162`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=160`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=162`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2448,7 +2448,7 @@ function say(message, duration = 3400) {
   pumpSay();
 }
 function pumpSay() {
-  if (!sayQueue.length || state.mode === 'framing' || performance.now() < sayBusyUntil) return;
+  if (!sayQueue.length || state.mode === 'framing' || !document.getElementById('sketch-view').hidden || performance.now() < sayBusyUntil) return;
   const [message, duration] = sayQueue.shift();
   toast.textContent = message;
   toast.classList.add('is-visible');
@@ -3429,13 +3429,14 @@ function interact() {
     pickups[action].group.visible = false;
     cuePickup();
     note(PICKUP_LINES[action][1]);
-    say(PICKUP_LINES[action][0], 4200);
+    if (action !== 'sketch') say(PICKUP_LINES[action][0], 4200);
     if (action === 'sketch') { // held up to the eye for a moment (Xingyi 11/17)
       const view = document.getElementById('sketch-view');
       view.hidden = false;
+      toast.classList.remove('is-visible'); // nothing sits over the sheet; queued lines wait for it to close
       requestAnimationFrame(() => view.classList.add('is-open'));
       clearTimeout(view.closeTimer);
-      const close = () => { view.classList.remove('is-open'); setTimeout(() => { view.hidden = true; }, 500); };
+      const close = () => { if (view.hidden) return; view.classList.remove('is-open'); setTimeout(() => { view.hidden = true; say(PICKUP_LINES.sketch[0], 4800); pumpSay(); }, 500); }; // the line follows, so it never sits on the sheet
       view.onclick = close;
       view.closeTimer = setTimeout(close, 4500);
     }
@@ -3737,7 +3738,7 @@ function update(dt, elapsed) {
       if (z < endZ + 1 && (Math.hypot(x - endSpot[0], z - endSpot[1]) < 1.3 || (x < endSpot[0] && z < endZ - 1))) state.passedEndArrow = true; // walked through it
       const farEnd = !state.passedEndArrow && Math.abs(x - BRIDGE.x) < 6 && z < endZ + .8 && z > endZ - 8;
       if (onStair) state.leftHall = true; // once out by the side stair, the aisle arrow would only send them back
-      const aisle = !state.leftHall && underBridgeRoof && cos > .5 && Math.abs(z - SIDE_STAIR.z) < SIDE_STAIR.half * .8; // only while standing in the gap: A walks straight out
+      const aisle = !state.leftHall && state.onBridge && !onStair && cos > .5 && z > SIDE_STAIR.z - SIDE_STAIR.half * .8 && z < SIDE_STAIR.z + 14; // shows ~3 s of walking before the gap (Xingyi 11/17) // only while standing in the gap: A walks straight out
       const arrow = document.getElementById('ink-arrow');
       const on = state.mode === 'play' && (aisle || farEnd);
       // Anchored in the world (Xingyi 11/17): projected from a spot on the ground, not pinned to the screen.
