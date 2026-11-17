@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=131';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=133';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=131';
+} from './look.js?v=133';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1311,11 +1311,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=131`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=133`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=131`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=133`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2763,7 +2763,7 @@ function win() {
   elapsedTime.textContent = `此行用时：${Math.floor(seconds / 60)} 分 ${String(seconds % 60).padStart(2, '0')} 秒`;
   // v0.9: the scroll holds all three views in reading order (right to left), no choosing.
   playLogText.textContent = playLog.join('\n');
-  keepLine.textContent = '卷中三景，都是你沿途亲自选取的景致。';
+  keepLine.textContent = `卷中${'一二三四'[Math.max(1, Object.values(shots).filter(Boolean).length) - 1] ?? '数'}景，都是你沿途亲自选取的景致。`;
   composeScroll();
   show(null);
   say('行过长桥，穿过村舍，沿山路登高。一路所见，收在这幅小卷里。', 4200);
@@ -3105,6 +3105,7 @@ function backToWorld() {
 // Pushing against something for a while brings one quiet line about where the way is (Harry:
 // a delayed hint beats a permanent arrow). At most once every 14 seconds.
 const stall = { t: 0, last: -99 };
+const SUMMIT_RAMP = { x0: -22.8, x1: -19.1, z0: -89.1, z1: -86.5, top: 26.875 }; // stair footprint and the pavilion floor (floor rays)
 const SUMMIT_STAIR = { x: -21.2, z: -87.8 }; // foot of the summit pavilion's stair (measured with floor rays)
 function noteStall(dt, moved, wanted) {
   stall.t = moved < wanted * .25 ? stall.t + dt : Math.max(0, stall.t - dt * 2);
@@ -3163,6 +3164,16 @@ function tryMove(dx, dz) {
   if (Math.abs(p.x - SUMMIT_STAIR.x) < 2.4 && Math.abs(p.z - SUMMIT_STAIR.z) < 2.6 && state.floor == null) {
     const drift = Math.sign(SUMMIT_STAIR.z - p.z) * Math.min(Math.abs(SUMMIT_STAIR.z - p.z), Math.hypot(dx, dz));
     steps.push([nextX, p.z + drift], [p.x, p.z + drift]);
+  }
+  // Xingyi 11/17: still could not climb the summit stair. Over the stair and its cheek walls the
+  // collision rays are skipped altogether: a plain ramp from the terrace up to the pavilion floor.
+  for (const [x, z] of steps) {
+    if (x < SUMMIT_RAMP.x0 || x > SUMMIT_RAMP.x1 || z < SUMMIT_RAMP.z0 || z > SUMMIT_RAMP.z1) continue;
+    const t = THREE.MathUtils.clamp((x + 21.7) / (SUMMIT_RAMP.x1 + 21.7), 0, 1), ground = heightAt(x, z); // level ground for the first pace, then the stair
+    const y = Math.max(ground, THREE.MathUtils.lerp(ground, SUMMIT_RAMP.top, t));
+    p.x = x; p.z = z;
+    state.floor = y > ground + .02 ? y : null;
+    return;
   }
   // Among the houses: try the full step, then slide along whichever wall is in the way.
   for (const [x, z] of steps) {
