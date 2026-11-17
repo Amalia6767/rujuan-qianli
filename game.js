@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=133';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=135';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=133';
+} from './look.js?v=135';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -390,6 +390,7 @@ function peakBlocks(x, z) {
   if (z > -49.5) return false;
   if (Math.hypot(x - PEAK_SPOTS.pavilion.x, z - PEAK_SPOTS.pavilion.z) < 3.6) return false; // the pavilion's terrace
   if (Math.hypot(x - SUMMIT_TERRACE.x, z - SUMMIT_TERRACE.z) < SUMMIT_TERRACE.r) return false; // the summit terrace
+  if (Math.hypot(x - -24.6, z - -87.2) < 3.2) return false; // Xingyi 11/17: the stair lands at the terrace's west edge; the brow below it, back to the path, is open
   return nearestOnPeakPath(x, z).distance > 1.8 && (peakMass(x, z) > 1.5 || z < -53);
 }
 
@@ -663,10 +664,13 @@ function drawWall(line) {
   ctx.strokeStyle = 'rgba(176,146,84,.8)'; ctx.lineWidth = 2;
   ctx.strokeRect(14, band + 4, W - 28, H - 2 * band - 8);
   const column = (text, x, size, ink, wet = false) => {
+    // Xingyi 11/17: a seven-character line ran over the brocade border. Every column now fits
+    // inside the silk with a margin top and bottom, as a hanging inscription would.
+    size = Math.min(size, Math.floor((H - 2 * band - 48) / [...text].length) - 6);
     ctx.font = `${size}px ${WALL_FONT}`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     [...text].forEach((ch, i) => {
-      const y = band + 22 + i * (size + 6);
+      const y = band + 24 + i * (size + 6);
       if (wet) { ctx.fillStyle = 'rgba(20,20,18,.95)'; ctx.fillText(ch, x, y); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillText(ch, x - 1, y - 1); }
       else { ctx.fillStyle = ink; ctx.fillText(ch, x, y); }
     });
@@ -1311,11 +1315,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=133`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=135`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=133`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=135`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -3167,8 +3171,15 @@ function tryMove(dx, dz) {
   }
   // Xingyi 11/17: still could not climb the summit stair. Over the stair and its cheek walls the
   // collision rays are skipped altogether: a plain ramp from the terrace up to the pavilion floor.
-  for (const [x, z] of steps) {
-    if (x < SUMMIT_RAMP.x0 || x > SUMMIT_RAMP.x1 || z < SUMMIT_RAMP.z0 || z > SUMMIT_RAMP.z1) continue;
+  // Xingyi 11/17: the slide candidates (sideways steps) were pulled back onto the ramp, so once
+  // down the stair the traveller could not walk away. Only the full step uses the ramp, and a
+  // step off it onto open ground (not into the pavilion) is always taken.
+  const inRamp = (x, z) => x >= SUMMIT_RAMP.x0 && x <= SUMMIT_RAMP.x1 && z >= SUMMIT_RAMP.z0 && z <= SUMMIT_RAMP.z1;
+  if (!inRamp(nextX, nextZ) && inRamp(p.x, p.z) && nextX < SUMMIT_RAMP.x1) {
+    p.x = nextX; p.z = nextZ; state.floor = null; return;
+  }
+  for (const [x, z] of steps.slice(0, 1)) {
+    if (!inRamp(x, z)) continue;
     const t = THREE.MathUtils.clamp((x + 21.7) / (SUMMIT_RAMP.x1 + 21.7), 0, 1), ground = heightAt(x, z); // level ground for the first pace, then the stair
     const y = Math.max(ground, THREE.MathUtils.lerp(ground, SUMMIT_RAMP.top, t));
     p.x = x; p.z = z;
