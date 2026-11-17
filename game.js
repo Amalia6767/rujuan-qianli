@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=143';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=144';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=143';
+} from './look.js?v=144';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=143`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=144`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=143`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=144`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2328,7 +2328,7 @@ function pickHint() {
   if (!coachState.walked) return 'walk';
   if (currentBank() === 'peak' && !shots.peak) return 'peak';
   if (state.onBridge && Math.abs(traveller.position.z - BRIDGE.z) < 12 && !shots.bridge) return currentBank() === 'bridge' ? 'bridgeView' : 'bridge';
-  if (state.crossed && !shots.far && traveller.position.z < RIVER.far - 2) return 'far';
+  if (state.crossed && !shots.far && errand.phase !== 'carrying' && traveller.position.z < RIVER.far - 2) return 'far';
   if (shots.far && !shots.peak && traveller.position.z > -52) return 'climb';
   if (!state.crossed && !shots.near && currentBank() === 'near' && traveller.position.z < 16) return 'near';
   if (!coachState.turned) return 'turn';
@@ -3557,10 +3557,10 @@ function update(dt, elapsed) {
       state.crossed = true;
       note('过桥到对岸');
       updateGoal();
-      say('回望来路，长桥已在身后。桥边的船、岸上的人，都小了，渐渐与两岸山色融在一处。', 6000);
-      if (errand.phase === 'carrying') setTimeout(() => {
-        if (errand.phase === 'carrying') say('肩上的货，送到右手边山庄长屋的门前。', 5200);
-      }, 6200);
+      // Xingyi 11/17: carrying the load, the delivery comes first, then the view; otherwise the view straight away.
+      const carrying = errand.phase === 'carrying';
+      if (carrying) say('肩上的货，先送到右手边山庄长屋的门前。', 5200);
+      setTimeout(() => say('回望来路，长桥已在身后。转过身，按 V 把长桥收入画中。', 6000), carrying ? 5400 : 0);
     }
     if (state.pendingEndAt && performance.now() > state.pendingEndAt) win();
 
@@ -3631,7 +3631,7 @@ function update(dt, elapsed) {
     camera.position.lerp(targetCamera, Math.min(1, dt * (clearingRoof ? 7 : 4.2)));
     { // ink arrows (Xingyi 11/17): hall aisle → out of the eaves on the left; far bridge end → up the hill on the left
       const endZ = BRIDGE.z - BRIDGE.half, endSpot = [BRIDGE.x - 3.2, endZ - 2.6]; // just off the end, to the traveller's left
-      if (Math.hypot(x - endSpot[0], z - endSpot[1]) < 1.3 || x < endSpot[0]) state.passedEndArrow = true; // walked through it
+      if (z < endZ + 1 && (Math.hypot(x - endSpot[0], z - endSpot[1]) < 1.3 || (x < endSpot[0] && z < endZ - 1))) state.passedEndArrow = true; // walked through it
       const farEnd = !state.passedEndArrow && Math.abs(x - BRIDGE.x) < 6 && z < endZ + .8 && z > endZ - 8;
       if (onStair) state.leftHall = true; // once out by the side stair, the aisle arrow would only send them back
       const aisle = !state.leftHall && underBridgeRoof && cos > .5 && Math.abs(z - SIDE_STAIR.z) < SIDE_STAIR.half * .8; // only while standing in the gap: A walks straight out
