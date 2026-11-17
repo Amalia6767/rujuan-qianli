@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=159';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=160';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=159';
+} from './look.js?v=160';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -700,7 +700,7 @@ function makePickup(key, x, z) {
   const group = new THREE.Group();
   group.position.set(x, heightAt(x, z) + .04, z);
   if (key === 'sketch') { // Xingyi's sheet, blown off the halfway pavilion, caught at the path's edge
-    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=159'); // (the shared loader is declared later)
+    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=160'); // (the shared loader is declared later)
     map.colorSpace = THREE.SRGBColorSpace;
     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.95, .68), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .95 }));
     sheet.rotation.set(-Math.PI / 2 + .35, 0, .5); // tipped up against the slope, as if the wind left it there
@@ -1347,11 +1347,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=159`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=160`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=159`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=160`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {

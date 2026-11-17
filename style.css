@@ -346,3 +346,4 @@ h1 span { font-size: .66em; letter-spacing: 0; }
 .sketch-view img{width:min(62vw,720px);transform:scale(.4) rotate(-6deg);opacity:0;transition:transform .5s ease,opacity .5s ease;filter:drop-shadow(0 12px 30px rgba(0,0,0,.35))}
 .sketch-view.is-open{background:rgba(20,32,30,.28)}
 .sketch-view.is-open img{transform:scale(1) rotate(-1.5deg);opacity:1}
+.sketch-view[hidden]{display:none}
