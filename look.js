@@ -259,6 +259,7 @@ void main() {
   c += grain(vW, dist);
   float fw = max(fwidth(y), 1e-4);
   float shore = (1. - smoothstep(fw * .8, fw * 2., abs(y + .35))) * step(.002, fw); // the waterline
+  shore *= 1. - smoothstep(35., 75., dist); // Xingyi 11/17: the waterline fades out in the distance (stray dark curves on far flats)
   c = mix(c, uInkCol, shore * uInk);
   // 山顶未上色：越近越高，青绿越褪，只剩绢底与等高的墨线
   float blank = smoothstep(uBlankAt.y - 10., uBlankAt.y - 2., y) * (1. - smoothstep(uBlankR * .45, uBlankR, length(vW.xz - uBlankAt.xz)));
