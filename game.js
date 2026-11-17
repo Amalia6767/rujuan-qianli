@@ -1,10 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=146';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=147';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=146';
+} from './look.js?v=147';
+const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1315,12 +1316,32 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   };
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
+// Opening veil (Xingyi 11/17): new players saw placeholder shapes while the models streamed in.
+// Every model fetch is counted; the veil lifts once all have settled (or after 40 s regardless).
+function liftVeil() {
+  if (veil.lifted) return;
+  veil.lifted = true;
+  const el = document.getElementById('load-veil');
+  el?.classList.add('is-gone');
+  setTimeout(() => el?.remove(), 1200);
+}
+function veilTick() {
+  const bar = document.getElementById('load-veil-bar');
+  const total = veil.pending + veil.done;
+  if (bar && total) bar.style.width = `${Math.round(veil.done / total * 100)}%`;
+  if (!veil.pending) setTimeout(() => { if (!veil.pending) liftVeil(); }, 400); // let late starters register
+}
+setTimeout(liftVeil, 40000);
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=146`); // ?v: published updates bypass cached copies
+  veil.pending++;
+  try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
+}
+async function loadModelPartsRaw(name) {
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=147`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=146`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=147`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {

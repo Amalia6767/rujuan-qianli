@@ -333,3 +333,10 @@ h1 span { font-size: .66em; letter-spacing: 0; }
 .ink-arrow.on{opacity:.85}
 .frame-checklist li.optional{border-style:dashed}
 .frame-checklist li[hidden]{display:none}
+
+.load-veil{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#efe6cf url(assets/paper-grain-ai.jpg) center/cover;color:#3b3a2c;font-family:'Noto Serif SC',serif;letter-spacing:.2em;transition:opacity 1.1s ease}
+.load-veil.is-gone{opacity:0;pointer-events:none}
+.load-veil-seal{border:2px solid #a8402f;color:#a8402f;padding:10px 8px;writing-mode:vertical-rl;font-size:22px}
+.load-veil p{margin:0;font-size:15px}
+.load-veil-track{width:min(240px,60vw);height:2px;background:rgba(59,58,44,.15)}
+.load-veil-bar{height:100%;width:0;background:#3b6b5e;transition:width .4s}
