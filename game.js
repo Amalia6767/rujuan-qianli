@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=154';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=155';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=154';
+} from './look.js?v=155';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -1339,11 +1339,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=154`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=155`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=154`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=155`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2708,11 +2708,13 @@ const browMark = new THREE.Group();
 browMark.visible = false;
 scene.add(browMark);
 loadModel('summit_mark', gltf => browMark.add(fitModel(gltf.scene, 1.5, 'y')), '取景点');
+// The mark stands on the terrace itself, right of the pavilion (Xingyi 11/17: at the brow it hung off the slope).
+const markSpot = new THREE.Vector3(SUMMIT_TERRACE.x + SUMMIT_FACING.x * (SUMMIT_TERRACE.r - 2), 0, SUMMIT_TERRACE.z + SUMMIT_FACING.z * (SUMMIT_TERRACE.r - 2));
 function updateBrowMark(elapsed) {
-  if (flat(traveller.position, browSpot) < 1.2) state.reachedBrow = true; // reached: it goes
+  if (flat(traveller.position, markSpot) < 1.2) state.reachedBrow = true; // reached: it goes
   browMark.visible = state.mode === 'play' && painterDone() && !shots.peak && !state.reachedBrow && currentBank() === 'peak';
   if (!browMark.visible) return;
-  browMark.position.set(browSpot.x, heightAt(browSpot.x, browSpot.z) + .1 + .08 * Math.sin(elapsed * 1.4), browSpot.z);
+  browMark.position.set(markSpot.x, groundUnder(markSpot) + .02 * Math.sin(elapsed * 1.4), markSpot.z); // sits on the ground
   browMark.rotation.y = elapsed * .5; // turning slowly, like a wisp of mist
 }
 function openFraming() {
