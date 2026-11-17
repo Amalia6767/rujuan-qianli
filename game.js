@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=158';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=159';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=158';
+} from './look.js?v=159';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -700,7 +700,7 @@ function makePickup(key, x, z) {
   const group = new THREE.Group();
   group.position.set(x, heightAt(x, z) + .04, z);
   if (key === 'sketch') { // Xingyi's sheet, blown off the halfway pavilion, caught at the path's edge
-    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=158'); // (the shared loader is declared later)
+    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=159'); // (the shared loader is declared later)
     map.colorSpace = THREE.SRGBColorSpace;
     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.95, .68), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .95 }));
     sheet.rotation.set(-Math.PI / 2 + .35, 0, .5); // tipped up against the slope, as if the wind left it there
@@ -922,7 +922,7 @@ function createEnvironment() {
   paintedPath(LANES[3], 2.4);
   paintedPath(LANES[4], 2.4);
   paintedPath([...PEAK_PATH.map(([x, z]) => [x, z]), [-15.6, -82]], 2.6); // drawn on to the summit view mark (Xingyi 11/17); the walking line is unchanged
-  paintedPath([[-21.6, -84.4], [-22.9, -86.1], [-23.1, -87.8]], 2.2); // the fork up to the pavilion stair (Xingyi 11/17)
+  paintedPath([[-24.5, -84.5], [-24.7, -86.4], [-23.4, -87.8]], 2.2); // the fork up to the pavilion stair (Xingyi 11/17)
   bankBrushwork();
   peakFeatures();
 
@@ -1347,11 +1347,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=158`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=159`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=158`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=159`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -3430,6 +3430,15 @@ function interact() {
     cuePickup();
     note(PICKUP_LINES[action][1]);
     say(PICKUP_LINES[action][0], 4200);
+    if (action === 'sketch') { // held up to the eye for a moment (Xingyi 11/17)
+      const view = document.getElementById('sketch-view');
+      view.hidden = false;
+      requestAnimationFrame(() => view.classList.add('is-open'));
+      clearTimeout(view.closeTimer);
+      const close = () => { view.classList.remove('is-open'); setTimeout(() => { view.hidden = true; }, 500); };
+      view.onclick = close;
+      view.closeTimer = setTimeout(close, 4500);
+    }
   } else if (action === 'inscribe') {
     openInscribe();
   } else if (action === 'giveback') {
@@ -3755,7 +3764,7 @@ function update(dt, elapsed) {
     // his shoulder until the whole landscape lies open toward the bridge, then hands control back.
     if (!state.summitRevealed && Math.hypot(x - SUMMIT_TERRACE.x, z - SUMMIT_TERRACE.z) < SUMMIT_TERRACE.r - 1) {
       state.summitRevealed = true;
-      state.revealT = 0;
+      // state.revealT = 0; // Xingyi 11/17: the orbiting reveal is off for now (the line still plays)
       // playtest: the summit chord over the reveal was too sudden; the music carries it instead.
       say('到了山顶，眼前豁然开阔。长桥、村舍与来时的山路，都在群山之间。', 5600);
     }
