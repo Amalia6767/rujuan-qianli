@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=167';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=168';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=167';
+} from './look.js?v=168';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -700,7 +700,7 @@ function makePickup(key, x, z) {
   const group = new THREE.Group();
   group.position.set(x, heightAt(x, z) + .04, z);
   if (key === 'sketch') { // Xingyi's sheet, blown off the halfway pavilion, caught at the path's edge
-    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=167'); // (the shared loader is declared later)
+    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=168'); // (the shared loader is declared later)
     map.colorSpace = THREE.SRGBColorSpace;
     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.95, .68), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .95 }));
     sheet.rotation.set(-Math.PI / 2 + .35, 0, .5); // tipped up against the slope, as if the wind left it there
@@ -1356,11 +1356,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=167`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=168`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=167`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=168`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2789,6 +2789,7 @@ function openFraming() {
   const dx = aim.x - traveller.position.x, dz = aim.z - traveller.position.z;
   state.frameYaw = Math.atan2(dx, -dz);
   state.framePitch = THREE.MathUtils.clamp(Math.atan2(aim.y - groundUnder(traveller.position) - 1.7, Math.hypot(dx, dz)), -.3, .2);
+  if (bank === 'far') { const fx = -6 - traveller.position.x, fz = BRIDGE.z - traveller.position.z; state.frameYaw = Math.atan2(fx, -fz); state.framePitch = -.06; } // Xingyi 11/17: panned right of the deck, so the bridge leads in from the edge and the river opens out
   if (bank === 'bridge') { state.frameYaw = traveller.position.x < BRIDGE.x ? -Math.PI / 2 : Math.PI / 2; state.framePitch = -.04; } // down the river, as from the rail
   if (bank === 'peak') { // aimed from the brow (see updateFrameCamera): bridge left of centre, the village and river beside it
     const ex = SUMMIT_TERRACE.x + SUMMIT_FACING.x * (SUMMIT_TERRACE.r + .6), ez = SUMMIT_TERRACE.z + SUMMIT_FACING.z * (SUMMIT_TERRACE.r + .6);
@@ -3998,6 +3999,23 @@ copyLogButton.addEventListener('click', async () => {
 });
 
 // QA only: open with ?qa to inspect/teleport from the console. Players never see it.
+// Film mode (trailer recording): ?film hides interface, ?film=clean also hides subtitles; Shift+F cycles off → film → clean.
+{
+  const film = new URLSearchParams(location.search).get('film');
+  const setFilm = (level) => {
+    document.body.classList.toggle('film', level > 0);
+    document.body.classList.toggle('film-clean', level > 1);
+    document.body.dataset.film = String(level);
+  };
+  setFilm(film === null ? 0 : film === 'clean' ? 2 : 1);
+  window.addEventListener('keydown', (event) => {
+    if (event.code === 'KeyF' && event.shiftKey) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setFilm(((Number(document.body.dataset.film) || 0) + 1) % 3);
+    }
+  }, true);
+}
 if (new URLSearchParams(location.search).has('qa')) {
   let qaElapsed = 0;
   // Advance the simulation without requestAnimationFrame (e.g. in a hidden tab).
