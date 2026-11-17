@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=156';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=157';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=156';
+} from './look.js?v=157';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -915,6 +915,7 @@ function createEnvironment() {
   paintedPath(LANES[3], 2.4);
   paintedPath(LANES[4], 2.4);
   paintedPath([...PEAK_PATH.map(([x, z]) => [x, z]), [-15.6, -82]], 2.6); // drawn on to the summit view mark (Xingyi 11/17); the walking line is unchanged
+  paintedPath([[-21.6, -84.4], [-22.9, -86.1], [-23.1, -87.8]], 2.2); // the fork up to the pavilion stair (Xingyi 11/17)
   bankBrushwork();
   peakFeatures();
 
@@ -1339,11 +1340,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=156`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=157`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=156`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=157`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
