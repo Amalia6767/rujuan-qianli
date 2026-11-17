@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=157';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=158';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=157';
+} from './look.js?v=158';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -693,13 +693,20 @@ function drawWall(line) {
 // The painter's things left on the path: picked up with E, handed back at the summit later.
 const pickups = {};
 const PICKUP_LINES = {
-  dish: ['山路旁遗落着一碟石绿，颜色尚湿。作画的人，或许并未走远。', '拾得石绿颜料碟'],
-  brush: ['一支画笔落在路旁，笔尖还带着湿意。', '拾得一支笔'],
+  sketch: ['灌木上挂着一张画稿，被风吹皱了。画的是山下的长桥和村子，只画了一半。', '拾得一张被风吹落的画稿'],
+  brush: ['路旁落着一支画笔，笔尖还湿。他走得急，就在前面了。', '拾得一支笔'],
 };
 function makePickup(key, x, z) {
   const group = new THREE.Group();
   group.position.set(x, heightAt(x, z) + .04, z);
-  if (key === 'dish') {
+  if (key === 'sketch') { // Xingyi's sheet, blown off the halfway pavilion, caught at the path's edge
+    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=158'); // (the shared loader is declared later)
+    map.colorSpace = THREE.SRGBColorSpace;
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.95, .68), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .95 }));
+    sheet.rotation.set(-Math.PI / 2 + .35, 0, .5); // tipped up against the slope, as if the wind left it there
+    sheet.position.y = .18;
+    group.add(sheet);
+  } else if (key === 'dish') {
     group.add(new THREE.Mesh(new THREE.CylinderGeometry(.3, .24, .07, 20), new THREE.MeshStandardMaterial({ color: 0xe8e2d2, roughness: .6 })));
     const paint = new THREE.Mesh(new THREE.CircleGeometry(.22, 20).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x3f9a74, roughness: .35 }));
     paint.position.y = .04;
@@ -716,7 +723,7 @@ function makePickup(key, x, z) {
     group.rotation.y = .7;
   }
   // Swap the placeholder shapes for Xingyi's Tripo brush and dish once they load.
-  loadModelParts(key === 'dish' ? 'pickup_dish' : 'pickup_brush').then(gltf => {
+  if (key !== 'sketch') loadModelParts(key === 'dish' ? 'pickup_dish' : 'pickup_brush').then(gltf => {
     group.children.filter(c => c !== pickups[key]?.ring).forEach(c => group.remove(c));
     gltf.scene.scale.setScalar(key === 'dish' ? 1.5 : 1);
     group.add(gltf.scene);
@@ -745,7 +752,7 @@ function peakFeatures() {
   drawWall('');
   scene.add(halfwayPavilion);
 
-  makePickup('dish', -12.4, -59.0);
+  makePickup('sketch', -20.7, -64.9); // below the halfway pavilion; the dish now stays in the pavilion
   makePickup('brush', -19.2, -74.2);
 }
 
@@ -1340,11 +1347,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=157`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=158`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=157`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=158`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -1673,6 +1680,20 @@ loadModel('halfway_pavilion', gltf => {
   faded.box = box;
   occluders.push(faded);
   houses.push({ site: { label: '半山亭' }, box, reach: box.clone().expandByScalar(.6), chunks: collisionChunks(model) });
+  // The painter's last working spot (Xingyi 11/17): mat still spread, weights holding nothing, colours and
+  // wash water left out. Seen, not taken; each piece set down on the floor found by a ray.
+  const floorRay = new THREE.Raycaster();
+  for (const [name, dx, dz, yaw, lift] of [
+    ['hp_mat', .3, 0, Math.PI / 2, 0], ['hp_weights', .3, -.1, 0, .03], ['hp_pigments', .95, .55, .4, .02],
+    ['hp_washer', .95, -.6, 0, .02], ['hp_bundle', -.6, -.9, .9, 0],
+  ]) loadModel(name, g => {
+    const x = spot.x + dx, z = spot.z + dz;
+    floorRay.set(new THREE.Vector3(x, box.max.y - .5, z), DOWN);
+    const hit = floorRay.intersectObject(model, true).find(h => h.point.y < box.min.y + 1.6);
+    g.scene.position.set(x, (hit ? hit.point.y : box.min.y + .3) + lift, z);
+    g.scene.rotation.y = yaw;
+    scene.add(g.scene);
+  }, '画具');
 
   // A few more on the islands of the open water, as the painting dots pavilions along its shores.
   let islandPavilions = 0;
@@ -2332,15 +2353,16 @@ const HINTS = {
   far: [['V'], '取景 · 回头，把长桥和来路收进画框'],
   climb: [['W'], '沿山路往上走，到山顶再取一景'],
   peak: [['V'], '出亭到崖边的印记处，按 V 取景'],
-  meet: [['E'], '亭中有人作画，先把拾来的笔和颜料还给他'],
+  meet: [['E'], '亭中有人作画，先把拾来的画稿和笔还给他'],
   bridge: [['V'], '出了亭檐，或从亭侧台阶下到水边平台，便可凭栏取景'],
   bridgeView: [['V'], '取景 · 凭栏望江'],
   cargo: [['E'], '接过这担货'],
   deliver: [['E'], '把货放在长屋门前'],
   dish: [['E'], '拾起'],
+  sketch: [['E'], '拾起画稿'],
   brush: [['E'], '拾起'],
   inscribe: [['E'], '在亭壁上题一句'],
-  giveback: [['E'], '把拾来的笔和颜料还给他'],
+  giveback: [['E'], '把拾来的画稿和笔还给他'],
   scroll: [['M'], '随时展卷，对照原作'],
 };
 function pickHint() {
@@ -2702,7 +2724,7 @@ function refreshFrameFeedback() {
 }
 
 // Summit order (Xingyi 11/17): give the painter his things, then step out to the brow and frame.
-const painterDone = () => PAINTER.returned || !(pickups.dish?.taken || pickups.brush?.taken);
+const painterDone = () => PAINTER.returned || !(pickups.sketch?.taken || pickups.brush?.taken);
 const browSpot = new THREE.Vector3(SUMMIT_TERRACE.x + SUMMIT_FACING.x * (SUMMIT_TERRACE.r + .6), 0, SUMMIT_TERRACE.z + SUMMIT_FACING.z * (SUMMIT_TERRACE.r + .6));
 // Xingyi's Tripo smoke swirl stands on the spot, so it reads from the player's eye height (a ground ring hid behind the slope).
 const browMark = new THREE.Group();
@@ -2721,7 +2743,7 @@ function updateBrowMark(elapsed) {
 function openFraming() {
   if (state.mode !== 'play') return;
   const bank = currentBank();
-  if (bank === 'peak' && !painterDone()) { say('亭中有人正在作画。先把拾来的笔和颜料还给他。', 3600); return; }
+  if (bank === 'peak' && !painterDone()) { say('亭中有人正在作画。先把拾来的画稿和笔还给他。', 3600); return; }
   if (!bank) {
     say(state.onBridge ? '出了亭檐，或从亭侧台阶下到水边平台，就能望见两岸。' : '到桥心或岸上，便可以取景。', 3200);
     return;
@@ -3319,6 +3341,7 @@ function resetErrands() {
     item.taken = false;
     item.group.visible = true;
   }
+  state.saw_pavilion_desk = false;
   drawWall('');
 }
 
@@ -3334,10 +3357,10 @@ function currentAction() {
     if (!item.taken && flat(p, item.group.position) < 1.8) return key;
   }
   if (!errand.inscription && halfwayPavilion && flat(p, PEAK_SPOTS.pavilion) < 3.2) return 'inscribe';
-  if (!PAINTER.returned && (pickups.dish?.taken || pickups.brush?.taken) && flat(p, PAINTER.at) < 4.5) return 'giveback'; // reaches across the front rail from the terrace (full run 11/16: the path arrives there, the stair is round the side)
+  if (!PAINTER.returned && (pickups.sketch?.taken || pickups.brush?.taken) && flat(p, PAINTER.at) < 4.5) return 'giveback'; // reaches across the front rail from the terrace (full run 11/16: the path arrives there, the stair is round the side)
   return '';
 }
-const ACTION_LABELS = { take: '接绳', tie: '系上', cargo: '接货', deliver: '放下货', dish: '拾起', brush: '拾起', inscribe: '题壁', giveback: '还给他' };
+const ACTION_LABELS = { take: '接绳', tie: '系上', cargo: '接货', deliver: '放下货', sketch: '拾起', brush: '拾起', inscribe: '题壁', giveback: '还给他' };
 
 function updateErrands(elapsed) {
   const p = traveller.position;
@@ -3401,7 +3424,7 @@ function interact() {
     cuePickup();
     note('为舟人送货');
     say('货放在长屋门前。屋里有人应了一声，递出一碗热茶。', 4600);
-  } else if (action === 'dish' || action === 'brush') {
+  } else if (action === 'sketch' || action === 'brush') {
     pickups[action].taken = true;
     pickups[action].group.visible = false;
     cuePickup();
@@ -3416,13 +3439,13 @@ function interact() {
     deskThings.clear();
     paintingStand.updateMatrixWorld(true);
     const deskRay = new THREE.Raycaster();
-    for (const key of ['dish', 'brush']) {
-      if (!pickups[key].taken) continue;
+    for (const key of ['sketch', 'brush']) {
+      if (!pickups[key]?.taken) continue;
       const thing = pickups[key].group.clone();
       thing.visible = true;
       thing.children.forEach(child => { if (child.geometry?.type === 'RingGeometry') child.visible = false; });
       // Set down on the desk top at either end of the scroll (Xingyi: they were left on the floor).
-      const spot = paintingStand.localToWorld(new THREE.Vector3(key === 'dish' ? .9 : -.9, 3, .3));
+      const spot = paintingStand.localToWorld(new THREE.Vector3(key === 'sketch' ? .9 : -.9, 3, .3));
       deskRay.set(spot, DOWN);
       const hit = deskRay.intersectObjects(paintingStand.children, true)[0];
       const local = paintingStand.worldToLocal(hit ? hit.point.clone() : spot.setY(paintingStand.position.y + .9));
@@ -3433,8 +3456,8 @@ function interact() {
     }
     returnedThings.visible = true;
     cueCapture();
-    note('把颜料与笔还给画者');
-    say('他没有回头，伸手接过了笔和颜料。', 3800);
+    note('把画稿与笔还给画者');
+    say('他接过画稿，看了一眼，又看了看山下。原来他把半山画过的，接着画进了这一卷。', 5200);
   } else if (action === 'take') {
     boatState.ropeHeld = true;
     landing.coil.visible = false;
@@ -3628,6 +3651,10 @@ function update(dt, elapsed) {
       const carrying = errand.phase === 'carrying';
       if (carrying) say('肩上的货，先送到右手边山庄长屋的门前。', 5200);
       setTimeout(() => say('回望来路，长桥已在身后。转过身，按 V 把长桥收入画中。', 6000), carrying ? 5400 : 0);
+    }
+    if (!state.saw_pavilion_desk && flat(traveller.position, PEAK_SPOTS.pavilion) < 2.3) {
+      state.saw_pavilion_desk = true;
+      say('亭中铺着一块画毡，镇纸还压在上面，纸却不见了。碟里的颜料还没干，笔洗里的水泛着青绿。画画的人刚走，看样子是往山上去了。', 7000);
     }
     if (state.pendingEndAt && performance.now() > state.pendingEndAt) win();
 
