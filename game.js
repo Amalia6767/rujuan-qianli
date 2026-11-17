@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=145';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=146';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=145';
+} from './look.js?v=146';
 
 const canvas = document.getElementById('world');
 const startScreen = document.getElementById('start-screen');
@@ -1316,11 +1316,11 @@ function paintIntoScroll(material, keep = .5, tint = [.9, .87, .8]) { // keep: s
   material.customProgramCacheKey = () => `paintedIntoScroll${keep}${tint}`;
 }
 async function loadModelParts(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=145`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=146`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=145`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=146`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2663,15 +2663,17 @@ function refreshFrameFeedback() {
 // Summit order (Xingyi 11/17): give the painter his things, then step out to the brow and frame.
 const painterDone = () => PAINTER.returned || !(pickups.dish?.taken || pickups.brush?.taken);
 const browSpot = new THREE.Vector3(SUMMIT_TERRACE.x + SUMMIT_FACING.x * (SUMMIT_TERRACE.r + .6), 0, SUMMIT_TERRACE.z + SUMMIT_FACING.z * (SUMMIT_TERRACE.r + .6));
-const browMark = new THREE.Mesh(new THREE.RingGeometry(.55, .78, 40), new THREE.MeshBasicMaterial({ color: 0x2c3a33, transparent: true, opacity: .3, depthWrite: false }));
-browMark.rotation.x = -Math.PI / 2;
+// Xingyi's Tripo smoke swirl stands on the spot, so it reads from the player's eye height (a ground ring hid behind the slope).
+const browMark = new THREE.Group();
 browMark.visible = false;
 scene.add(browMark);
+loadModel('summit_mark', gltf => browMark.add(fitModel(gltf.scene, 1.5, 'y')), '取景点');
 function updateBrowMark(elapsed) {
-  browMark.visible = state.mode === 'play' && painterDone() && !shots.peak && currentBank() === 'peak';
+  if (flat(traveller.position, browSpot) < 1.2) state.reachedBrow = true; // reached: it goes
+  browMark.visible = state.mode === 'play' && painterDone() && !shots.peak && !state.reachedBrow && currentBank() === 'peak';
   if (!browMark.visible) return;
-  browMark.position.set(browSpot.x, heightAt(browSpot.x, browSpot.z) + .06, browSpot.z);
-  browMark.material.opacity = .22 + .1 * Math.sin(elapsed * 1.6); // a faint ink ring, breathing
+  browMark.position.set(browSpot.x, heightAt(browSpot.x, browSpot.z) + .1 + .08 * Math.sin(elapsed * 1.4), browSpot.z);
+  browMark.rotation.y = elapsed * .5; // turning slowly, like a wisp of mist
 }
 function openFraming() {
   if (state.mode !== 'play') return;
