@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=148';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=150';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=148';
+} from './look.js?v=150';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -1339,11 +1339,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=148`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=150`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=148`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=150`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -3545,7 +3545,10 @@ function update(dt, elapsed) {
       const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 6.7 : 4.7;
       // Walking is relative to the view: W always goes away from the camera.
       const cos = Math.cos(state.camYaw), sin = Math.sin(state.camYaw);
-      const nx = (vx * cos + vz * sin) / length, nz = (vz * cos - vx * sin) / length;
+      let nx = (vx * cos + vz * sin) / length, nz = (vz * cos - vx * sin) / length;
+      // Full run 11/17: A from the aisle turns the view down the stair, after which A meant "along the
+      // bridge" and he stuck at the gap's edge. On the stair every key follows the stair line.
+      if (onSideStair(traveller.position)) { nx = Math.abs(nx) > .2 ? Math.sign(nx) : vx < 0 ? -1 : 1; nz = 0; } // sideways keys follow the stair: A down, D up
       const fromX = traveller.position.x, fromZ = traveller.position.z;
       tryMove(nx * speed * dt, nz * speed * dt);
       noteStall(dt, Math.hypot(traveller.position.x - fromX, traveller.position.z - fromZ), speed * dt);
