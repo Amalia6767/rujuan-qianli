@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from './vendor/addons/meshopt_decoder.module.js'; // models are meshopt-compressed (11/17)
-import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=162';
+import { startAudio, setMuted, isMuted, cueUnroll, cueCapture, cueArrival, cueRope, cueSummit, cueStep, cuePickup, playEndingMusic, playTravelMusic } from './sound.js?v=164';
 import {
   U, PALETTES, QUESTIONS, MAX_SHELLS, optionOf, recipeName, settingsOf,
   makeSky, groundMaterial, pathMaterial, celadon, organza, ribbonGeo, jadeMountain, cloudSea, treeSprites,
-} from './look.js?v=162';
+} from './look.js?v=164';
 const veil = { pending: 0, done: 0, lifted: false };
 
 const canvas = document.getElementById('world');
@@ -700,7 +700,7 @@ function makePickup(key, x, z) {
   const group = new THREE.Group();
   group.position.set(x, heightAt(x, z) + .04, z);
   if (key === 'sketch') { // Xingyi's sheet, blown off the halfway pavilion, caught at the path's edge
-    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=162'); // (the shared loader is declared later)
+    const map = new THREE.TextureLoader().load('./assets/sketch_sheet.png?v=164'); // (the shared loader is declared later)
     map.colorSpace = THREE.SRGBColorSpace;
     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.95, .68), new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .95 }));
     sheet.rotation.set(-Math.PI / 2 + .35, 0, .5); // tipped up against the slope, as if the wind left it there
@@ -1254,13 +1254,22 @@ applyRecipe(recipe.choice);
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, 64, 64);
+  // A flat (sprite) tree steps out near the traveller (look.js TREE_FRAG); its blot goes with it (Xingyi 11/17).
+  const isSprite = (p, i) => !(p.kind !== 'strip' && !p.sprite && (i < plants.heroes || nearPath(p.x, p.z, 10)));
   const blots = [
-    ...plants.filter(p => p.kind !== 'strip').map(p => ({ x: p.x, z: p.z, r: p.scale * (p.kind === 'willow' ? 1.9 : 1.6), y: p.y + .1 })),
+    ...plants.map((p, i) => ({ p, i })).filter(({ p }) => p.kind !== 'strip').map(({ p, i }) => ({ x: p.x, z: p.z, r: p.scale * (p.kind === 'willow' ? 1.9 : 1.6), y: p.y + .1, sprite: isSprite(p, i) })),
     ...[...HOUSE_SITES, ...DECOR_SITES].map(h => ({ x: h.x, z: h.z, r: h.scale * .62, y: heightAt(h.x, h.z) })),
   ];
   const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ color: 0x0b1a16, alphaMap: new THREE.CanvasTexture(c), transparent: true, opacity: .3,
       depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), blots.length);
+  const sprites = blots.map(b => b.sprite ? 1 : 0);
+  mesh.geometry.setAttribute('aSprite', new THREE.InstancedBufferAttribute(new Float32Array(sprites), 1));
+  mesh.material.onBeforeCompile = sh => {
+    sh.uniforms.uFocus = U.uFocus;
+    sh.vertexShader = sh.vertexShader.replace('void main() {', 'attribute float aSprite; uniform vec3 uFocus; varying float vGone;\nvoid main() {\n  vec4 bc = instanceMatrix * vec4(0., 0., 0., 1.);\n  vGone = aSprite * step(length(bc.xz - uFocus.xz), 10.5);');
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'varying float vGone;\nvoid main() {\n  if (vGone > .5) discard;');
+  };
   const m = new THREE.Matrix4();
   blots.forEach((b, i) => mesh.setMatrixAt(i, m.makeScale(b.r, 1, b.r).setPosition(b.x, b.y + .06, b.z)));
   mesh.renderOrder = 3;
@@ -1347,11 +1356,11 @@ async function loadModelParts(name) {
   try { return await loadModelPartsRaw(name); } finally { veil.pending--; veil.done++; veilTick(); }
 }
 async function loadModelPartsRaw(name) {
-  const response = await fetch(`./assets/models/${name}.glb.txt?v=162`); // ?v: published updates bypass cached copies
+  const response = await fetch(`./assets/models/${name}.glb.txt?v=164`); // ?v: published updates bypass cached copies
   if (!response.ok) throw new Error(`${name}.glb.txt ${response.status}`);
   const bytes = Uint8Array.from(atob((await response.text()).trim()), c => c.charCodeAt(0));
   const gltf = await gltfLoader.parseAsync(bytes.buffer, './assets/models/');
-  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=162`);
+  const map = await textureLoader.loadAsync(`./assets/models/${name}_basecolor.jpg?v=164`);
   map.flipY = false; // glTF UV convention
   map.colorSpace = THREE.SRGBColorSpace;
   gltf.scene.traverse(part => {
@@ -2447,6 +2456,23 @@ function say(message, duration = 3400) {
   sayQueue.push([message, duration]);
   pumpSay();
 }
+// Inner thoughts (Xingyi 11/17): what the traveller notices, in a cloud by his head, apart from the
+// bottom narration. Positioned each frame in updateThought.
+function think(text, duration = 5600) {
+  document.querySelector('#thought p').textContent = text;
+  state.thoughtUntil = performance.now() + duration;
+}
+function updateThought() {
+  const el = document.getElementById('thought');
+  const sheetOpen = !document.getElementById('sketch-view').hidden;
+  const on = state.mode === 'play' && performance.now() < (state.thoughtUntil || 0);
+  if (el.hidden === on) el.hidden = !on;
+  el.classList.toggle('with-sheet', sheetOpen); // both show together: the sheet moves up, the thought sits below it
+  if (!on || sheetOpen) return;
+  const head = traveller.position.clone().add(new THREE.Vector3(0, 2.5, 0)).project(camera);
+  el.style.left = `${((head.x + 1) * 50).toFixed(1)}%`;
+  el.style.top = `${((1 - head.y) * 50).toFixed(1)}%`;
+}
 function pumpSay() {
   if (!sayQueue.length || state.mode === 'framing' || !document.getElementById('sketch-view').hidden || performance.now() < sayBusyUntil) return;
   const [message, duration] = sayQueue.shift();
@@ -3342,6 +3368,8 @@ function resetErrands() {
     item.group.visible = true;
   }
   state.saw_pavilion_desk = false;
+  state.sawSketch = false;
+  state.thoughtUntil = 0;
   drawWall('');
 }
 
@@ -3429,14 +3457,15 @@ function interact() {
     pickups[action].group.visible = false;
     cuePickup();
     note(PICKUP_LINES[action][1]);
-    if (action !== 'sketch') say(PICKUP_LINES[action][0], 4200);
+    if (action !== 'sketch') think(PICKUP_LINES[action][0]);
     if (action === 'sketch') { // held up to the eye for a moment (Xingyi 11/17)
       const view = document.getElementById('sketch-view');
       view.hidden = false;
       toast.classList.remove('is-visible'); // nothing sits over the sheet; queued lines wait for it to close
+      think(PICKUP_LINES.sketch[0], 5200); // the thought stays with the sheet, laid out beside it
       requestAnimationFrame(() => view.classList.add('is-open'));
       clearTimeout(view.closeTimer);
-      const close = () => { if (view.hidden) return; view.classList.remove('is-open'); setTimeout(() => { view.hidden = true; say(PICKUP_LINES.sketch[0], 4800); pumpSay(); }, 500); }; // the line follows, so it never sits on the sheet
+      const close = () => { if (view.hidden) return; view.classList.remove('is-open'); setTimeout(() => { view.hidden = true; pumpSay(); }, 500); }; // the line follows, so it never sits on the sheet
       view.onclick = close;
       view.closeTimer = setTimeout(close, 4500);
     }
@@ -3587,6 +3616,7 @@ function update(dt, elapsed) {
   updateWaymarks(elapsed);
   updateBirds(elapsed);
   updateBrowMark(elapsed);
+  updateThought();
   for (const boat of farBoats) { // a slow bob on the current
     const t = elapsed + boat.userData.phase;
     boat.position.y = -.38 + Math.sin(t * .8) * .04;
@@ -3662,9 +3692,13 @@ function update(dt, elapsed) {
       if (carrying) say('肩上的货，先送到右手边山庄长屋的门前。', 5200);
       setTimeout(() => say('回望来路，长桥已在身后。转过身，按 V 把长桥收入画中。', 6000), carrying ? 5400 : 0);
     }
+    if (!state.sawSketch && pickups.sketch && !pickups.sketch.taken && flat(traveller.position, pickups.sketch.group.position) < 4.5) {
+      state.sawSketch = true;
+      think(PICKUP_LINES.sketch[0]); // noticed on the way up, before it is picked up
+    }
     if (!state.saw_pavilion_desk && flat(traveller.position, PEAK_SPOTS.pavilion) < 2.3) {
       state.saw_pavilion_desk = true;
-      say('亭中铺着一块画毡，镇纸还压在上面，纸却不见了。碟里的颜料还没干，笔洗里的水泛着青绿。画画的人刚走，看样子是往山上去了。', 7000);
+      think('亭中铺着一块画毡，镇纸还压在上面，纸却不见了。碟里的颜料还没干，笔洗里的水泛着青绿。画画的人刚走，看样子是往山上去了。', 8000);
     }
     if (state.pendingEndAt && performance.now() > state.pendingEndAt) win();
 

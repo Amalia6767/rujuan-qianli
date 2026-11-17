@@ -347,3 +347,9 @@ h1 span { font-size: .66em; letter-spacing: 0; }
 .sketch-view.is-open{background:rgba(20,32,30,.28)}
 .sketch-view.is-open img{transform:scale(1) rotate(-1.5deg);opacity:1}
 .sketch-view[hidden]{display:none}
+.thought{position:fixed;z-index:7;width:min(440px,80vw);aspect-ratio:640/248;transform:translate(-50%,-100%);background:url(assets/thought_cloud.png) center/100% 100% no-repeat;pointer-events:none;display:flex;align-items:center;padding:0 9% 0 17%;box-sizing:border-box;animation:thought-in .45s ease-out}
+.thought[hidden]{display:none}
+.thought p{margin:0;font-family:'Noto Serif SC',serif;font-size:13.5px;line-height:1.55;color:#22302c;letter-spacing:.02em}
+@keyframes thought-in{from{opacity:0;transform:translate(-50%,-92%)}to{opacity:1;transform:translate(-50%,-100%)}}
+.thought.with-sheet{left:50% !important;top:auto !important;bottom:5vh;transform:translate(-50%,0);z-index:10;animation:none}
+.sketch-view.is-open img{transform:translateY(-9vh) scale(.88) rotate(-1.5deg)}
