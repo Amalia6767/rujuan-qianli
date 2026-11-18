@@ -3999,7 +3999,7 @@ copyLogButton.addEventListener('click', async () => {
 });
 
 // QA only: open with ?qa to inspect/teleport from the console. Players never see it.
-// Film mode (trailer recording): ?film hides interface, ?film=clean also hides subtitles; Shift+F cycles off → film → clean.
+// Film mode (trailer recording): ?film hides interface, ?film=clean also hides subtitles; Shift+F toggles hints on/off.
 {
   const film = new URLSearchParams(location.search).get('film');
   const setFilm = (level) => {
@@ -4007,12 +4007,15 @@ copyLogButton.addEventListener('click', async () => {
     document.body.classList.toggle('film-clean', level > 1);
     document.body.dataset.film = String(level);
   };
-  setFilm(film === null ? 0 : film === 'clean' ? 2 : 1);
+  const filmLevel = film === null ? 0 : film === 'clean' ? 2 : 1;
+  setFilm(filmLevel);
+  // Shift+F: quick peek at hints, then back to the clean view (Xingyi 11/18: interactions need the prompt to find)
   window.addEventListener('keydown', (event) => {
     if (event.code === 'KeyF' && event.shiftKey) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      setFilm(((Number(document.body.dataset.film) || 0) + 1) % 3);
+      const now = Number(document.body.dataset.film) || 0;
+      setFilm(now > 0 ? 0 : (filmLevel || 2));
     }
   }, true);
 }

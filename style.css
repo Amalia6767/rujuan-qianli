@@ -355,6 +355,6 @@ h1 span { font-size: .66em; letter-spacing: 0; }
 .sketch-view.is-open img{transform:translateY(-13vh) scale(.78) rotate(-1.5deg)}
 body:has(.sketch-view:not([hidden])) .toast{z-index:10}
 
-/* Film mode for recording the trailer: ?film hides task list, buttons, hint bar, arrow; ?film=clean also hides subtitles. Shift+F cycles. */
+/* Film mode for recording the trailer: ?film hides task list, buttons, hint bar, arrow; ?film=clean also hides subtitles. Shift+F toggles hints on/off. */
 body.film .topline, body.film .hud, body.film .coach, body.film .ink-arrow, body.film .rujuan-skip, body.film .frame-checklist, body.film .frame-actions, body.film .frame-howto, body.film #frame-status { display: none !important; }
 body.film-clean .toast { display: none !important; }
